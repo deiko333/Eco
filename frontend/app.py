@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QVBoxLay
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QPainter, QColor
 
-from engine import SimulationEngine
+from backend.engine import SimulationEngine
 
 
 class EcosystemCanvas(QWidget):
@@ -106,7 +106,7 @@ class MainWindow(QWidget):
         for entity in state["entities"]:
             if entity["type"] == "plant":
                 plants_count += 1
-            elif entity["type"] == "rabbit":
+            elif entity["type"] == "herbivore":
                 herbivores_count += 1
 
         self.tick_label.setText(f"Tick: {state['tick']}")
