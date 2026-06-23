@@ -2,7 +2,6 @@ import sys
 import random
 
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QLineEdit, QSlider, QTableWidget, QTableWidgetItem
-
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QPainter, QColor
 
@@ -61,7 +60,7 @@ class MainWindow(QWidget):
 
         self.plants_input = QLineEdit()
         self.plants_input.setPlaceholderText("Plants count")
-        self.plants_input.setText("20")
+        self.plants_input.setText("150")
 
         self.herbivores_input = QLineEdit()
         self.herbivores_input.setPlaceholderText("Herbivores count")
@@ -186,10 +185,10 @@ class MainWindow(QWidget):
                         random.randint(0, self.engine.world.width),
                         random.randint(0, self.engine.world.height),
                         100,
-                        100,
+                        150,
                         0,
-                        2,
-                        50
+                        3,
+                        100
                     )
                 )
 
@@ -219,16 +218,13 @@ class MainWindow(QWidget):
     def update_labels(self):
         state = self.engine.get_state()
 
-        plants_count = 0
-        herbivores_count = 0
+        plants_count = state["counts"]["plants"]
+        herbivores_count = state["counts"]["herbivores"]
+
         total_energy = 0
 
         for entity in state["entities"]:
-            if entity["type"] == "plant":
-                plants_count += 1
-
-            elif entity["type"] == "herbivore":
-                herbivores_count += 1
+            if entity["type"] == "herbivore":
                 total_energy += entity["energy"]
 
         if herbivores_count > 0:
@@ -244,16 +240,13 @@ class MainWindow(QWidget):
     def add_table_row(self):
         state = self.engine.get_state()
 
-        plants_count = 0
-        herbivores_count = 0
+        plants_count = state["counts"]["plants"]
+        herbivores_count = state["counts"]["herbivores"]
+
         total_energy = 0
 
         for entity in state["entities"]:
-            if entity["type"] == "plant":
-                plants_count += 1
-
-            elif entity["type"] == "herbivore":
-                herbivores_count += 1
+            if entity["type"] == "herbivore":
                 total_energy += entity["energy"]
 
         if herbivores_count > 0:
