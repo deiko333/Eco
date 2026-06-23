@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QVBoxLay
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QPainter, QColor
 
-from engine import SimulationEngine, Plant, Herbivore
+from backend.engine import SimulationEngine, Plant, Herbivore
 
 
 class EcosystemCanvas(QWidget):

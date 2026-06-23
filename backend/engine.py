@@ -1,6 +1,5 @@
 import random
 
-
 class Organism:
     def __init__(self, id, x, y, health, energy, age, speed, vision):
         self.id = id
@@ -49,7 +48,7 @@ class World:
         self.height = 700
 
     def spawn_plants(self):
-        for i in range(20):
+        for i in range(150):
             self.plants.append(
                 Plant(
                     i,
@@ -67,10 +66,10 @@ class World:
                     random.randint(0, self.width),
                     random.randint(0, self.height),
                     100,
-                    100,
+                    150,
                     0,
-                    2,
-                    50
+                    3,
+                    100
                 )
             )
 
@@ -96,32 +95,59 @@ class SimulationEngine:
 
         self.current_tick += 1
 
+        # HERBIVORES
         for herbivore in self.world.herbivores[:]:
 
-            herbivore.x += random.randint(-3, 3)
-            herbivore.y += random.randint(-3, 3)
+            closest_plant = None
+            closest_distance = float("inf")
 
+            for plant in self.world.plants:
+
+                distance = (
+                    (herbivore.x - plant.x) ** 2 +
+                    (herbivore.y - plant.y) ** 2
+                ) ** 0.5
+
+                if distance < closest_distance:
+                    closest_distance = distance
+                    closest_plant = plant
+
+            # move toward food if exists
+            if closest_plant:
+
+                if herbivore.x < closest_plant.x:
+                    herbivore.x += herbivore.speed
+                elif herbivore.x > closest_plant.x:
+                    herbivore.x -= herbivore.speed
+
+                if herbivore.y < closest_plant.y:
+                    herbivore.y += herbivore.speed
+                elif herbivore.y > closest_plant.y:
+                    herbivore.y -= herbivore.speed
+
+            else:
+                # fallback random movement
+                herbivore.x += random.randint(-3, 3)
+                herbivore.y += random.randint(-3, 3)
+
+            # bounds
             herbivore.x = max(0, min(herbivore.x, self.world.width))
             herbivore.y = max(0, min(herbivore.y, self.world.height))
 
             herbivore.energy -= 1
 
-            for plant in self.world.plants[:]:
+            # eat plant
+            if closest_plant and closest_distance < 15:
+                herbivore.energy += closest_plant.food_value
+                if closest_plant in self.world.plants:
+                    self.world.plants.remove(closest_plant)
 
-                distance = (
-                    (herbivore.x - plant.x) ** 2
-                    + (herbivore.y - plant.y) ** 2
-                ) ** 0.5
-
-                if distance < 15:
-                    herbivore.energy += plant.food_value
-                    self.world.plants.remove(plant)
-                    break
-
+            # death
             if herbivore.energy <= 0:
                 self.world.herbivores.remove(herbivore)
 
-        if self.current_tick % 50 == 0:
+        # plant regrowth
+        if self.current_tick % 3 == 0:
             self.world.plants.append(
                 Plant(
                     self.current_tick,
@@ -151,5 +177,9 @@ class SimulationEngine:
 
         return {
             "tick": self.current_tick,
-            "entities": data
-        }
+            "entities": data,
+            "counts": {
+                "plants": len(self.world.plants),
+                "herbivores": len(self.world.herbivores)
+    }
+}
