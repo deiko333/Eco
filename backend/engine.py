@@ -134,10 +134,10 @@ class SimulationEngine:
             herbivore.x = max(0, min(herbivore.x, self.world.width))
             herbivore.y = max(0, min(herbivore.y, self.world.height))
 
-            herbivore.energy -= 1
+            herbivore.energy -= 0.3
 
             # eat plant
-            if closest_plant and closest_distance < 15:
+            if closest_plant and closest_distance < 25:
                 herbivore.energy += closest_plant.food_value
                 if closest_plant in self.world.plants:
                     self.world.plants.remove(closest_plant)
@@ -147,13 +147,14 @@ class SimulationEngine:
                 self.world.herbivores.remove(herbivore)
 
         # plant regrowth
-        if self.current_tick % 3 == 0:
-            self.world.plants.append(
-                Plant(
-                    self.current_tick,
-                    random.randint(0, self.world.width),
-                    random.randint(0, self.world.height),
-                    10
+        if self.current_tick % 2 == 0:
+            for _ in range(3):
+                self.world.plants.append(
+                    Plant(
+                        self.current_tick,
+                        random.randint(0, self.world.width),
+                        random.randint(0, self.world.height),
+                        25
                 )
             )
 
