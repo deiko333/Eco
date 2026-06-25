@@ -10,6 +10,7 @@ class Organism:
         self.age = age
         self.speed = speed
         self.vision = vision
+        self.reproduce_cooldown = 0
 
     def move(self):
         pass
@@ -98,6 +99,7 @@ class SimulationEngine:
         # HERBIVORES
         for herbivore in self.world.herbivores[:]:
 
+
             closest_plant = None
             closest_distance = float("inf")
 
@@ -108,55 +110,78 @@ class SimulationEngine:
                     (herbivore.y - plant.y) ** 2
                 ) ** 0.5
 
-                if distance < closest_distance:
+                if distance < herbivore.vision and distance < closest_distance:
                     closest_distance = distance
                     closest_plant = plant
+
 
             # move toward food if exists
             if closest_plant:
 
-                if herbivore.x < closest_plant.x:
-                    herbivore.x += herbivore.speed
-                elif herbivore.x > closest_plant.x:
-                    herbivore.x -= herbivore.speed
+                dx = closest_plant.x - herbivore.x
+                dy = closest_plant.y - herbivore.y
 
-                if herbivore.y < closest_plant.y:
-                    herbivore.y += herbivore.speed
-                elif herbivore.y > closest_plant.y:
-                    herbivore.y -= herbivore.speed
+                dist = (dx*dx + dy*dy) ** 0.5
 
-            else:
-                # fallback random movement
-                herbivore.x += random.randint(-3, 3)
-                herbivore.y += random.randint(-3, 3)
+                if dist > 0:
+                    herbivore.x += (dx / dist) * herbivore.speed
+                    herbivore.y += (dy / dist) * herbivore.speed
+                else:
+                    # fallback random movement
+                    herbivore.x += random.randint(-3, 3)
+                    herbivore.y += random.randint(-3, 3)
 
             # bounds
             herbivore.x = max(0, min(herbivore.x, self.world.width))
             herbivore.y = max(0, min(herbivore.y, self.world.height))
 
-            herbivore.energy -= 0.3
+            herbivore.energy -= 0.05
 
             # eat plant
             if closest_plant and closest_distance < 25:
                 herbivore.energy += closest_plant.food_value
                 if closest_plant in self.world.plants:
-                    self.world.plants.remove(closest_plant)
+                        try:
+                            self.world.plants.remove(closest_plant)
+                        except ValueError:
+                            pass
+            # reproduction
+            if not hasattr(herbivore, "reproduce_cooldown"):
+                herbivore.reproduce_cooldown = 0
 
+            herbivore.reproduce_cooldown -= 1
+
+            if herbivore.energy > 180 and herbivore.reproduce_cooldown <= 0:
+                herbivore.energy -= 80          
+                herbivore.reproduce_cooldown = 50
+
+                self.world.herbivores.append(
+                    Herbivore(
+                        random.randint(100000, 999999),
+                        herbivore.x + random.randint(-10, 10),
+                        herbivore.y + random.randint(-10, 10),
+                        100,
+                        90,
+                        0,
+                        herbivore.speed,
+                        herbivore.vision
+                    )
+                )
             # death
             if herbivore.energy <= 0:
                 self.world.herbivores.remove(herbivore)
 
         # plant regrowth
-        if self.current_tick % 2 == 0:
+        if self.current_tick % 2 == 0 and len(self.world.plants) < 400:            
             for _ in range(3):
                 self.world.plants.append(
                     Plant(
                         self.current_tick,
                         random.randint(0, self.world.width),
                         random.randint(0, self.world.height),
-                        25
+                        35
+                    )
                 )
-            )
 
     def get_state(self):
         data = []
@@ -182,5 +207,5 @@ class SimulationEngine:
             "counts": {
                 "plants": len(self.world.plants),
                 "herbivores": len(self.world.herbivores)
-    }
+    }       
 }
