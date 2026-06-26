@@ -11,6 +11,7 @@ class Organism:
         self.speed = speed
         self.vision = vision
         self.reproduce_cooldown = 0
+        self.max_age = random.randint(800, 1500)
 
     def move(self):
         pass
@@ -126,16 +127,17 @@ class SimulationEngine:
                 if dist > 0:
                     herbivore.x += (dx / dist) * herbivore.speed
                     herbivore.y += (dy / dist) * herbivore.speed
-                else:
-                    # fallback random movement
-                    herbivore.x += random.randint(-3, 3)
-                    herbivore.y += random.randint(-3, 3)
+            else:
+                # fallback random movement
+                herbivore.x += random.randint(-1, 1) * herbivore.speed
+                herbivore.y += random.randint(-1, 1) * herbivore.speed
 
             # bounds
             herbivore.x = max(0, min(herbivore.x, self.world.width))
             herbivore.y = max(0, min(herbivore.y, self.world.height))
 
-            herbivore.energy -= (0.2 + herbivore.speed * 0.05)
+            age_penalty = herbivore.age / herbivore.max_age * 0.2
+            herbivore.energy -= (0.25 + herbivore.speed * 0.03 + age_penalty)
 
             # eat plant
             if closest_plant and closest_distance < 25:
@@ -161,31 +163,30 @@ class SimulationEngine:
                         herbivore.x + random.randint(-10, 10),
                         herbivore.y + random.randint(-10, 10),
                         100,
-                        70,   # weaker newborn
+                        70,   
                         0,
-                        herbivore.speed,
-                        herbivore.vision
+                        max(1,herbivore.speed + random.uniform(-0.3, 0.3)),
+                        max(20,herbivore.vision + random.uniform(-5, 5))
                     )
                 )
             # death
-            if herbivore.energy <= 0:
+            herbivore.age +=1
+            if herbivore.energy <= 0 or herbivore.age >= herbivore.max_age:
                 self.world.herbivores.remove(herbivore)
 
         # plant regrowth
-        if self.current_tick % 2 == 0 and len(self.world.plants) < 500:
-            for _ in range(6):
-                self.world.plants.append(
-                    Plant(
-                        self.current_tick,
-                        random.randint(0, self.world.width),
-                        random.randint(0, self.world.height),
-                        random.randint(15,35)
-                )
-            )
-        if self.current_tick % 10 == 0 and self.world.plants:
-            for _ in range(min(3, len(self.world.plants))):
-                self.world.plants.pop(random.randint(0, len(self.world.plants)-1))
-
+        if self.current_tick % 10 == 0:
+                if len(self.world.plants) < 300:
+                    for _ in range(5):
+                        self.world.plants.append(
+                            Plant(
+                                self.current_tick,
+                                random.randint(0, self.world.width),
+                                random.randint(0, self.world.height),
+                                20
+                            )
+                        )
+        
     def get_state(self):
         data = []
 
@@ -202,6 +203,9 @@ class SimulationEngine:
                 "x": herbivore.x,
                 "y": herbivore.y,
                 "energy": herbivore.energy
+                "speed": round(herbivore.speed, 2)
+                "vision": round(herbivore.vision, 1)
+                "age": herbivore.age
             })
 
         return {
