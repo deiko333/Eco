@@ -135,7 +135,7 @@ class SimulationEngine:
             herbivore.x = max(0, min(herbivore.x, self.world.width))
             herbivore.y = max(0, min(herbivore.y, self.world.height))
 
-            herbivore.energy -= 0.05
+            herbivore.energy -= (0.2 + herbivore.speed * 0.05)
 
             # eat plant
             if closest_plant and closest_distance < 25:
@@ -151,9 +151,9 @@ class SimulationEngine:
 
             herbivore.reproduce_cooldown -= 1
 
-            if herbivore.energy > 180 and herbivore.reproduce_cooldown <= 0:
-                herbivore.energy -= 80          
-                herbivore.reproduce_cooldown = 50
+            if herbivore.energy > 260 and herbivore.reproduce_cooldown <= 0:
+                herbivore.energy -= 160
+                herbivore.reproduce_cooldown = 150
 
                 self.world.herbivores.append(
                     Herbivore(
@@ -161,7 +161,7 @@ class SimulationEngine:
                         herbivore.x + random.randint(-10, 10),
                         herbivore.y + random.randint(-10, 10),
                         100,
-                        90,
+                        70,   # weaker newborn
                         0,
                         herbivore.speed,
                         herbivore.vision
@@ -172,16 +172,19 @@ class SimulationEngine:
                 self.world.herbivores.remove(herbivore)
 
         # plant regrowth
-        if self.current_tick % 2 == 0 and len(self.world.plants) < 400:            
-            for _ in range(3):
+        if self.current_tick % 2 == 0 and len(self.world.plants) < 500:
+            for _ in range(6):
                 self.world.plants.append(
                     Plant(
                         self.current_tick,
                         random.randint(0, self.world.width),
                         random.randint(0, self.world.height),
-                        35
-                    )
+                        random.randint(15,35)
                 )
+            )
+        if self.current_tick % 10 == 0 and self.world.plants:
+            for _ in range(min(3, len(self.world.plants))):
+                self.world.plants.pop(random.randint(0, len(self.world.plants)-1))
 
     def get_state(self):
         data = []
