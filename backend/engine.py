@@ -202,9 +202,9 @@ class SimulationEngine:
                 "type": "herbivore",
                 "x": herbivore.x,
                 "y": herbivore.y,
-                "energy": herbivore.energy
-                "speed": round(herbivore.speed, 2)
-                "vision": round(herbivore.vision, 1)
+                "energy": herbivore.energy,
+                "speed": round(herbivore.speed, 2),
+                "vision": round(herbivore.vision, 1),
                 "age": herbivore.age
             })
 
