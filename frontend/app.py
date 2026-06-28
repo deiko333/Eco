@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
     QFileDialog
 )
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtGui import QPainter, QColor
+from PyQt5.QtGui import QPainter, QColor, QPen
 
 from backend.engine import SimulationEngine, Plant, Herbivore
 
@@ -29,15 +29,23 @@ class EcosystemCanvas(QWidget):
             y = int(entity["y"])
 
             if entity["type"] == "plant":
+                painter.setPen(Qt.NoPen)
                 painter.setBrush(QColor("green"))
                 painter.drawEllipse(x, y, 8, 8)
 
             elif entity["type"] == "herbivore":
                 energy = entity["energy"]
+                vision = int(entity.get("vision", 0))
 
-                if energy > 70:
+                painter.setPen(QPen(QColor(120, 120, 120, 50), 1))
+                painter.setBrush(Qt.NoBrush)
+                painter.drawEllipse(x - vision, y - vision, vision * 2, vision * 2)
+
+                painter.setPen(Qt.NoPen)
+
+                if energy > 120:
                     painter.setBrush(QColor("gray"))
-                elif energy > 30:
+                elif energy > 50:
                     painter.setBrush(QColor("yellow"))
                 else:
                     painter.setBrush(QColor("red"))
@@ -65,6 +73,12 @@ class EcosystemCanvas(QWidget):
         painter.drawEllipse(20, 95, 12, 12)
         painter.drawText(40, 105, "Herbivore - low energy")
 
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(QPen(QColor(120, 120, 120), 1))
+        painter.drawEllipse(20, 120, 14, 14)
+        painter.setPen(QColor("black"))
+        painter.drawText(40, 132, "Vision range")
+
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -77,7 +91,7 @@ class MainWindow(QWidget):
         self.min_herbivores = 0
 
         self.setWindowTitle("EcoBalance - Ecosystem Simulator")
-        self.setGeometry(100, 100, 1300, 850)
+        self.setGeometry(100, 100, 1350, 850)
 
         self.title_label = QLabel("EcoBalance Simulator")
 
@@ -85,6 +99,9 @@ class MainWindow(QWidget):
         self.plants_label = QLabel("Plants: 0")
         self.herbivores_label = QLabel("Herbivores: 0")
         self.energy_label = QLabel("Average Energy: 0")
+        self.speed_info_label = QLabel("Average Speed: 0")
+        self.vision_info_label = QLabel("Average Vision: 0")
+        self.age_info_label = QLabel("Average Age: 0")
         self.status_label = QLabel("Status: Paused")
 
         self.max_plants_label = QLabel("Max Plants: 0")
@@ -99,7 +116,7 @@ class MainWindow(QWidget):
         self.herbivores_input.setPlaceholderText("Herbivores count")
         self.herbivores_input.setText("10")
 
-        self.speed_label = QLabel("Speed: 50 ms")
+        self.speed_label = QLabel("Simulation Speed: 50 ms")
 
         self.speed_slider = QSlider(Qt.Horizontal)
         self.speed_slider.setMinimum(20)
@@ -122,8 +139,11 @@ class MainWindow(QWidget):
         self.save_button.clicked.connect(self.save_table_to_csv)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Tick", "Plants", "Herbivores", "Avg Energy"])
+        self.table.setColumnCount(7)
+        self.table.setHorizontalHeaderLabels([
+            "Tick", "Plants", "Herbivores", "Avg Energy",
+            "Avg Speed", "Avg Vision", "Avg Age"
+        ])
         self.table.setFixedHeight(250)
 
         buttons_layout = QHBoxLayout()
@@ -149,6 +169,9 @@ class MainWindow(QWidget):
         side_layout.addWidget(self.plants_label)
         side_layout.addWidget(self.herbivores_label)
         side_layout.addWidget(self.energy_label)
+        side_layout.addWidget(self.speed_info_label)
+        side_layout.addWidget(self.vision_info_label)
+        side_layout.addWidget(self.age_info_label)
         side_layout.addWidget(self.status_label)
 
         side_layout.addWidget(self.max_plants_label)
@@ -259,7 +282,7 @@ class MainWindow(QWidget):
     def change_speed(self):
         value = self.speed_slider.value()
         self.timer.setInterval(value)
-        self.speed_label.setText(f"Speed: {value} ms")
+        self.speed_label.setText(f"Simulation Speed: {value} ms")
 
     def update_simulation(self):
         self.engine.update()
@@ -277,11 +300,39 @@ class MainWindow(QWidget):
         if self.engine.current_tick % 10 == 0 and self.engine.current_tick != 0:
             self.add_table_row()
 
-    def update_labels(self):
+    def calculate_statistics(self):
         state = self.engine.get_state()
 
         plants_count = state["counts"]["plants"]
         herbivores_count = state["counts"]["herbivores"]
+
+        total_energy = 0
+        total_speed = 0
+        total_vision = 0
+        total_age = 0
+
+        for entity in state["entities"]:
+            if entity["type"] == "herbivore":
+                total_energy += entity.get("energy", 0)
+                total_speed += entity.get("speed", 0)
+                total_vision += entity.get("vision", 0)
+                total_age += entity.get("age", 0)
+
+        if herbivores_count > 0:
+            average_energy = total_energy / herbivores_count
+            average_speed = total_speed / herbivores_count
+            average_vision = total_vision / herbivores_count
+            average_age = total_age / herbivores_count
+        else:
+            average_energy = 0
+            average_speed = 0
+            average_vision = 0
+            average_age = 0
+
+        return state, plants_count, herbivores_count, average_energy, average_speed, average_vision, average_age
+
+    def update_labels(self):
+        state, plants_count, herbivores_count, avg_energy, avg_speed, avg_vision, avg_age = self.calculate_statistics()
 
         if self.min_herbivores == 0 and herbivores_count > 0:
             self.min_herbivores = herbivores_count
@@ -292,42 +343,20 @@ class MainWindow(QWidget):
         if herbivores_count > 0:
             self.min_herbivores = min(self.min_herbivores, herbivores_count)
 
-        total_energy = 0
-
-        for entity in state["entities"]:
-            if entity["type"] == "herbivore":
-                total_energy += entity["energy"]
-
-        if herbivores_count > 0:
-            average_energy = total_energy / herbivores_count
-        else:
-            average_energy = 0
-
         self.tick_label.setText(f"Tick: {state['tick']}")
         self.plants_label.setText(f"Plants: {plants_count}")
         self.herbivores_label.setText(f"Herbivores: {herbivores_count}")
-        self.energy_label.setText(f"Average Energy: {average_energy:.1f}")
+        self.energy_label.setText(f"Average Energy: {avg_energy:.1f}")
+        self.speed_info_label.setText(f"Average Speed: {avg_speed:.2f}")
+        self.vision_info_label.setText(f"Average Vision: {avg_vision:.1f}")
+        self.age_info_label.setText(f"Average Age: {avg_age:.1f}")
 
         self.max_plants_label.setText(f"Max Plants: {self.max_plants}")
         self.max_herbivores_label.setText(f"Max Herbivores: {self.max_herbivores}")
         self.min_herbivores_label.setText(f"Min Herbivores: {self.min_herbivores}")
 
     def add_table_row(self):
-        state = self.engine.get_state()
-
-        plants_count = state["counts"]["plants"]
-        herbivores_count = state["counts"]["herbivores"]
-
-        total_energy = 0
-
-        for entity in state["entities"]:
-            if entity["type"] == "herbivore":
-                total_energy += entity["energy"]
-
-        if herbivores_count > 0:
-            average_energy = total_energy / herbivores_count
-        else:
-            average_energy = 0
+        state, plants_count, herbivores_count, avg_energy, avg_speed, avg_vision, avg_age = self.calculate_statistics()
 
         row = self.table.rowCount()
         self.table.insertRow(row)
@@ -335,7 +364,10 @@ class MainWindow(QWidget):
         self.table.setItem(row, 0, QTableWidgetItem(str(state["tick"])))
         self.table.setItem(row, 1, QTableWidgetItem(str(plants_count)))
         self.table.setItem(row, 2, QTableWidgetItem(str(herbivores_count)))
-        self.table.setItem(row, 3, QTableWidgetItem(f"{average_energy:.1f}"))
+        self.table.setItem(row, 3, QTableWidgetItem(f"{avg_energy:.1f}"))
+        self.table.setItem(row, 4, QTableWidgetItem(f"{avg_speed:.2f}"))
+        self.table.setItem(row, 5, QTableWidgetItem(f"{avg_vision:.1f}"))
+        self.table.setItem(row, 6, QTableWidgetItem(f"{avg_age:.1f}"))
 
     def save_table_to_csv(self):
         if self.table.rowCount() == 0:
@@ -354,7 +386,7 @@ class MainWindow(QWidget):
 
         try:
             with open(filename, "w", encoding="utf-8") as file:
-                file.write("Tick,Plants,Herbivores,Avg Energy\n")
+                file.write("Tick,Plants,Herbivores,Avg Energy,Avg Speed,Avg Vision,Avg Age\n")
 
                 for row in range(self.table.rowCount()):
                     values = []
