@@ -29,6 +29,15 @@ class Plant:
         self.x = x
         self.y = y
         self.food_value = food_value
+        self.age = 0
+
+class BerryBush:
+    def __init__(self, id, x, y):
+        self.id = id
+        self.x = x
+        self.y = y
+        self.food_value = 50
+        self.age = 0
 
 
 class Herbivore(Organism):
@@ -46,6 +55,7 @@ class World:
     def __init__(self):
         self.plants = []
         self.herbivores = []
+        self.berry_bushes = []
         self.width = 1000
         self.height = 700
 
@@ -56,7 +66,7 @@ class World:
                     i,
                     random.randint(0, self.width),
                     random.randint(0, self.height),
-                    10
+                    20
                 )
             )
 
@@ -71,7 +81,17 @@ class World:
                     150,
                     0,
                     3,
-                    100
+                    150
+                )
+            )
+
+    def spawn_berry_bushes(self):
+        for i in range(15):
+            self.berry_bushes.append(
+                BerryBush(
+                    i,
+                    random.randint(0, self.width),
+                    random.randint(0, self.height)
                 )
             )
 
@@ -84,6 +104,7 @@ class SimulationEngine:
 
         self.world.spawn_plants()
         self.world.spawn_herbivores()
+        self.world.spawn_berry_bushes()
 
     def start(self):
         self.running = True
@@ -104,7 +125,7 @@ class SimulationEngine:
             closest_plant = None
             closest_distance = float("inf")
 
-            for plant in self.world.plants:
+            for plant in self.world.plants + self.world.berry_bushes:
 
                 distance = (
                     (herbivore.x - plant.x) ** 2 +
@@ -137,6 +158,7 @@ class SimulationEngine:
             herbivore.y = max(0, min(herbivore.y, self.world.height))
 
             age_penalty = herbivore.age / herbivore.max_age * 0.2
+            herbivore.energy = min(herbivore.energy, 300)
             herbivore.energy -= (0.25 + herbivore.speed * 0.03 + age_penalty)
 
             # eat plant
@@ -147,15 +169,16 @@ class SimulationEngine:
                             self.world.plants.remove(closest_plant)
                         except ValueError:
                             pass
-            # reproduction
-            if not hasattr(herbivore, "reproduce_cooldown"):
-                herbivore.reproduce_cooldown = 0
-
+                elif closest_plant in self.world.berry_bushes:
+                    try:
+                        self.world.berry_bushes.remove(closest_plant)
+                    except ValueError:
+                        pass
             herbivore.reproduce_cooldown -= 1
 
-            if herbivore.energy > 260 and herbivore.reproduce_cooldown <= 0:
-                herbivore.energy -= 160
-                herbivore.reproduce_cooldown = 150
+            if herbivore.energy > 250 and herbivore.reproduce_cooldown <= 0 and herbivore.age > 150:
+                herbivore.energy -= 120
+                herbivore.reproduce_cooldown = 200
 
                 self.world.herbivores.append(
                     Herbivore(
@@ -166,7 +189,7 @@ class SimulationEngine:
                         70,   
                         0,
                         max(1,herbivore.speed + random.uniform(-0.3, 0.3)),
-                        max(20,herbivore.vision + random.uniform(-5, 5))
+                        max(20,herbivore.vision + random.randint(-5, 5))
                     )
                 )
             # death
@@ -174,16 +197,31 @@ class SimulationEngine:
             if herbivore.energy <= 0 or herbivore.age >= herbivore.max_age:
                 self.world.herbivores.remove(herbivore)
 
+        # age plants and grow food value
+        for plant in self.world.plants:
+            plant.age += 1
+            plant.food_value = min(40, 10 + plant.age * 0.05)
+
+
         # plant regrowth
-        if self.current_tick % 10 == 0:
-                if len(self.world.plants) < 300:
-                    for _ in range(5):
+        if self.current_tick % 5 == 0:
+                if len(self.world.plants) < 500:
+                    for _ in range(12):
                         self.world.plants.append(
                             Plant(
                                 self.current_tick,
                                 random.randint(0, self.world.width),
                                 random.randint(0, self.world.height),
                                 20
+                            )
+                        )
+                if len(self.world.berry_bushes) < 15:
+                    if random.random() < 0.3:
+                        self.world.berry_bushes.append(
+                            BerryBush(
+                                random.randint(100000, 999999),
+                                random.randint(0, self.world.width),
+                                random.randint(0, self.world.height)
                             )
                         )
         
@@ -194,7 +232,17 @@ class SimulationEngine:
             data.append({
                 "type": "plant",
                 "x": plant.x,
-                "y": plant.y
+                "y": plant.y,
+                "age": plant.age,
+                "food_value": round(plant.food_value,1)
+            })
+        
+        for bush in self.world.berry_bushes:
+            data.append({
+                "type" : "berry_bush",
+                "x" : bush.x,
+                "y" : bush.y,
+                "food_value" : round(bush.food_value, 1)                                     
             })
 
         for herbivore in self.world.herbivores:
@@ -213,6 +261,7 @@ class SimulationEngine:
             "entities": data,
             "counts": {
                 "plants": len(self.world.plants),
-                "herbivores": len(self.world.herbivores)
+                "herbivores": len(self.world.herbivores),
+                "berry_bushes" : len(self.world.berry_bushes)
     }       
 }
