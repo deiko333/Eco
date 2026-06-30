@@ -50,12 +50,25 @@ class Herbivore(Organism):
     def eat(self):
         pass
 
+class Fox(Organism):
+    def __init__(self, id, x, y, health, hunger, energy, age, speed, vision):
+        super().__init__(id, x,y,health,energy,age,speed,vision)
+        self.hunger = hunger
+
+    def find_prey(self):
+        pass
+
+    def hunt(self):
+        pass
+
+
 
 class World:
     def __init__(self):
         self.plants = []
         self.herbivores = []
         self.berry_bushes = []
+        self.foxes = []
         self.width = 1000
         self.height = 700
 
@@ -95,6 +108,22 @@ class World:
                 )
             )
 
+    def spawn_foxes(self):
+        for i in range(4):
+            self.foxes.append(
+                Fox(
+                    i,
+                    random.randint(0, self.width),
+                    random.randint(0, self.height),
+                    100,
+                    0,
+                    150,
+                    0,
+                    4,
+                    150
+                )
+            )
+
 
 class SimulationEngine:
     def __init__(self):
@@ -105,6 +134,7 @@ class SimulationEngine:
         self.world.spawn_plants()
         self.world.spawn_herbivores()
         self.world.spawn_berry_bushes()
+        self.world.spawn_foxes()
 
     def start(self):
         self.running = True
@@ -202,6 +232,51 @@ class SimulationEngine:
             plant.age += 1
             plant.food_value = min(40, 10 + plant.age * 0.05)
 
+        #foxes
+        for fox in self.world.foxes[:]:
+            closest_prey = None
+            closest_distance = float("inf")
+            for herbivore in self.world.herbivores:
+                
+                distance = (
+                    (fox.x - herbivore.x) ** 2 +
+                    (fox.y - herbivore.y) ** 2
+                ) ** 0.5
+
+                if distance < fox.vision and distance < closest_distance:
+                    closest_distance = distance
+                    closest_prey = herbivore
+            if closest_prey:
+                dx = closest_prey.x - fox.x
+                dy = closest_prey.y - fox.y
+                dist = (dx*dx + dy*dy) ** 0.5
+                
+                if dist > 0:
+                    fox.x += (dx / dist) * fox.speed
+                    fox.y += (dy / dist) * fox.speed
+            else:
+                fox.x += random.randint(-1,1) * fox.speed
+                fox.y += random.randint(-1,1) * fox.speed
+
+            fox.x = max(0, min(fox.x, self.world.width))
+            fox.y = max(0, min(fox.y, self.world.height))
+
+            fox.energy -= (0.3 + fox.speed * 0.04)
+            fox.hunger += 1
+
+            #hunt
+            if closest_prey and closest_distance < 20:
+                fox.energy += 120
+                fox.hunger = 0
+                if closest_prey in self.world.herbivores:
+                    try:
+                        self.world.herbivores.remove(closest_prey)
+                    except ValueError:
+                        pass
+
+            fox.age += 1
+            if fox.energy <= 0 or fox.age >= fox.max_age:
+                self.world.foxes.remove(fox)
 
         # plant regrowth
         if self.current_tick % 5 == 0:
@@ -256,12 +331,23 @@ class SimulationEngine:
                 "age": herbivore.age
             })
 
+        for fox in self.world.foxes:
+            data.append({
+                "type" : "fox",
+                "x" : fox.x,
+                "y" : fox.y,
+                "energy" : fox.energy,
+                "hunger" : fox.hunger,
+                "age" : fox.age           
+            })
+
         return {
             "tick": self.current_tick,
             "entities": data,
             "counts": {
                 "plants": len(self.world.plants),
                 "herbivores": len(self.world.herbivores),
-                "berry_bushes" : len(self.world.berry_bushes)
+                "berry_bushes" : len(self.world.berry_bushes),
+                "foxes" : len(self.world.foxes)
     }       
 }
