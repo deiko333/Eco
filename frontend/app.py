@@ -345,10 +345,10 @@ class MainWindow(QWidget):
                         random.randint(0, self.engine.world.height),
                         100,
                         0,
-                        150,
+                        200,
                         0,
                         4,
-                        150
+                        100
                     )
                 )
 
@@ -374,6 +374,21 @@ class MainWindow(QWidget):
         value = self.speed_slider.value()
         self.timer.setInterval(value)
         self.speed_label.setText(f"Simulation Speed: {value} ms")
+
+    def get_ecosystem_status(self, plants_count, herbivores_count, foxes_count):
+        if herbivores_count == 0:
+            return "Status: Herbivores extinct"
+
+        if foxes_count == 0 and herbivores_count > 30:
+            return "Status: Fox reintroduction expected"
+
+        if foxes_count > herbivores_count:
+            return "Status: Too many predators"
+
+        if plants_count < herbivores_count * 2:
+            return "Status: Food shortage"
+
+        return "Status: Balanced"
 
     def update_simulation(self):
         self.engine.update()
@@ -496,6 +511,9 @@ class MainWindow(QWidget):
         self.age_info_label.setText(f"Average Herbivore Age: {avg_age:.1f}")
         self.fox_age_label.setText(f"Average Fox Age: {avg_fox_age:.1f}")
         self.food_label.setText(f"Average Plant Food: {avg_food:.1f}")
+
+        ecosystem_status = self.get_ecosystem_status(plants_count, herbivores_count, foxes_count)
+        self.status_label.setText(ecosystem_status)
 
         self.max_plants_label.setText(f"Max Plants: {self.max_plants}")
         self.max_berry_label.setText(f"Max Berry Bushes: {self.max_berry_bushes}")
