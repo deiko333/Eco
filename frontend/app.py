@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QPainter, QColor, QPen
 
-from backend.engine import SimulationEngine, Plant, Herbivore
+from backend.engine import SimulationEngine, Plant, Herbivore, Fox
 
 
 class EcosystemCanvas(QWidget):
@@ -48,7 +48,7 @@ class EcosystemCanvas(QWidget):
                 energy = entity.get("energy", 0)
                 vision = int(entity.get("vision", 0))
 
-                painter.setPen(QPen(QColor(120, 120, 120, 45), 1))
+                painter.setPen(QPen(QColor(120, 120, 120, 40), 1))
                 painter.setBrush(Qt.NoBrush)
                 painter.drawEllipse(x - vision, y - vision, vision * 2, vision * 2)
 
@@ -62,6 +62,20 @@ class EcosystemCanvas(QWidget):
                     painter.setBrush(QColor("red"))
 
                 painter.drawEllipse(x, y, 14, 14)
+
+            elif entity["type"] == "fox":
+                energy = entity.get("energy", 0)
+
+                painter.setPen(Qt.NoPen)
+
+                if energy > 120:
+                    painter.setBrush(QColor("#8D4A16"))
+                elif energy > 50:
+                    painter.setBrush(QColor("#D2691E"))
+                else:
+                    painter.setBrush(QColor("#FF7043"))
+
+                painter.drawEllipse(x, y, 17, 17)
 
         self.draw_legend(painter)
 
@@ -92,11 +106,15 @@ class EcosystemCanvas(QWidget):
         painter.drawEllipse(20, 150, 12, 12)
         painter.drawText(40, 162, "Herbivore - low energy")
 
+        painter.setBrush(QColor("#D2691E"))
+        painter.drawEllipse(20, 175, 14, 14)
+        painter.drawText(40, 188, "Fox")
+
         painter.setBrush(Qt.NoBrush)
         painter.setPen(QPen(QColor(120, 120, 120), 1))
-        painter.drawEllipse(20, 175, 14, 14)
+        painter.drawEllipse(20, 200, 14, 14)
         painter.setPen(QColor("black"))
-        painter.drawText(40, 188, "Vision range")
+        painter.drawText(40, 213, "Vision range")
 
 
 class MainWindow(QWidget):
@@ -109,9 +127,10 @@ class MainWindow(QWidget):
         self.max_herbivores = 0
         self.min_herbivores = 0
         self.max_berry_bushes = 0
+        self.max_foxes = 0
 
         self.setWindowTitle("EcoBalance - Ecosystem Simulator")
-        self.setGeometry(100, 100, 1380, 850)
+        self.setGeometry(100, 100, 1420, 850)
 
         self.title_label = QLabel("EcoBalance Simulator")
 
@@ -119,16 +138,23 @@ class MainWindow(QWidget):
         self.plants_label = QLabel("Plants: 0")
         self.berry_label = QLabel("Berry Bushes: 0")
         self.herbivores_label = QLabel("Herbivores: 0")
-        self.energy_label = QLabel("Average Energy: 0")
+        self.foxes_label = QLabel("Foxes: 0")
+
+        self.energy_label = QLabel("Average Herbivore Energy: 0")
+        self.fox_energy_label = QLabel("Average Fox Energy: 0")
+        self.fox_hunger_label = QLabel("Average Fox Hunger: 0")
+
         self.speed_info_label = QLabel("Average Speed: 0")
         self.vision_info_label = QLabel("Average Vision: 0")
-        self.age_info_label = QLabel("Average Age: 0")
+        self.age_info_label = QLabel("Average Herbivore Age: 0")
+        self.fox_age_label = QLabel("Average Fox Age: 0")
         self.food_label = QLabel("Average Plant Food: 0")
         self.status_label = QLabel("Status: Paused")
 
         self.max_plants_label = QLabel("Max Plants: 0")
         self.max_berry_label = QLabel("Max Berry Bushes: 0")
         self.max_herbivores_label = QLabel("Max Herbivores: 0")
+        self.max_foxes_label = QLabel("Max Foxes: 0")
         self.min_herbivores_label = QLabel("Min Herbivores: 0")
 
         self.plants_input = QLineEdit()
@@ -138,6 +164,10 @@ class MainWindow(QWidget):
         self.herbivores_input = QLineEdit()
         self.herbivores_input.setPlaceholderText("Herbivores count")
         self.herbivores_input.setText("10")
+
+        self.foxes_input = QLineEdit()
+        self.foxes_input.setPlaceholderText("Foxes count")
+        self.foxes_input.setText("4")
 
         self.speed_label = QLabel("Simulation Speed: 50 ms")
 
@@ -162,11 +192,11 @@ class MainWindow(QWidget):
         self.save_button.clicked.connect(self.save_table_to_csv)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(9)
+        self.table.setColumnCount(12)
         self.table.setHorizontalHeaderLabels([
-            "Tick", "Plants", "Berry Bushes", "Herbivores",
-            "Avg Energy", "Avg Speed", "Avg Vision", "Avg Age",
-            "Avg Plant Food"
+            "Tick", "Plants", "Berry Bushes", "Herbivores", "Foxes",
+            "Avg Herb Energy", "Avg Fox Energy", "Avg Fox Hunger",
+            "Avg Speed", "Avg Vision", "Avg Herb Age", "Avg Plant Food"
         ])
         self.table.setFixedHeight(250)
 
@@ -184,6 +214,9 @@ class MainWindow(QWidget):
         side_layout.addWidget(QLabel("Initial Herbivores:"))
         side_layout.addWidget(self.herbivores_input)
 
+        side_layout.addWidget(QLabel("Initial Foxes:"))
+        side_layout.addWidget(self.foxes_input)
+
         side_layout.addWidget(self.apply_button)
 
         side_layout.addWidget(self.speed_label)
@@ -193,16 +226,23 @@ class MainWindow(QWidget):
         side_layout.addWidget(self.plants_label)
         side_layout.addWidget(self.berry_label)
         side_layout.addWidget(self.herbivores_label)
+        side_layout.addWidget(self.foxes_label)
+
         side_layout.addWidget(self.energy_label)
+        side_layout.addWidget(self.fox_energy_label)
+        side_layout.addWidget(self.fox_hunger_label)
+
         side_layout.addWidget(self.speed_info_label)
         side_layout.addWidget(self.vision_info_label)
         side_layout.addWidget(self.age_info_label)
+        side_layout.addWidget(self.fox_age_label)
         side_layout.addWidget(self.food_label)
         side_layout.addWidget(self.status_label)
 
         side_layout.addWidget(self.max_plants_label)
         side_layout.addWidget(self.max_berry_label)
         side_layout.addWidget(self.max_herbivores_label)
+        side_layout.addWidget(self.max_foxes_label)
         side_layout.addWidget(self.min_herbivores_label)
 
         side_layout.addLayout(buttons_layout)
@@ -242,6 +282,7 @@ class MainWindow(QWidget):
         self.max_herbivores = 0
         self.min_herbivores = 0
         self.max_berry_bushes = 0
+        self.max_foxes = 0
 
         self.table.setRowCount(0)
 
@@ -253,12 +294,13 @@ class MainWindow(QWidget):
         try:
             plants_count = int(self.plants_input.text())
             herbivores_count = int(self.herbivores_input.text())
+            foxes_count = int(self.foxes_input.text())
 
-            if plants_count < 0 or herbivores_count < 0:
+            if plants_count < 0 or herbivores_count < 0 or foxes_count < 0:
                 QMessageBox.warning(self, "Input Error", "Counts must be positive numbers.")
                 return
 
-            if plants_count > 1000 or herbivores_count > 200:
+            if plants_count > 1000 or herbivores_count > 200 or foxes_count > 80:
                 QMessageBox.warning(self, "Input Error", "Too many organisms. Try smaller numbers.")
                 return
 
@@ -268,6 +310,7 @@ class MainWindow(QWidget):
             self.engine.world.plants = []
             self.engine.world.herbivores = []
             self.engine.world.berry_bushes = []
+            self.engine.world.foxes = []
             self.engine.current_tick = 0
 
             for i in range(plants_count):
@@ -294,6 +337,21 @@ class MainWindow(QWidget):
                     )
                 )
 
+            for i in range(foxes_count):
+                self.engine.world.foxes.append(
+                    Fox(
+                        i,
+                        random.randint(0, self.engine.world.width),
+                        random.randint(0, self.engine.world.height),
+                        100,
+                        0,
+                        150,
+                        0,
+                        4,
+                        150
+                    )
+                )
+
             self.engine.world.spawn_berry_bushes()
 
             self.canvas.engine = self.engine
@@ -302,6 +360,7 @@ class MainWindow(QWidget):
             self.max_plants = plants_count
             self.max_herbivores = herbivores_count
             self.min_herbivores = herbivores_count
+            self.max_foxes = foxes_count
             self.max_berry_bushes = len(self.engine.world.berry_bushes)
 
             self.status_label.setText("Status: Settings Applied")
@@ -325,8 +384,12 @@ class MainWindow(QWidget):
 
         if self.engine.running and state["counts"]["herbivores"] == 0:
             self.engine.pause()
-            self.status_label.setText("Status: Simulation stopped - herbivores died")
-            QMessageBox.information(self, "Simulation Ended", "All herbivores died.")
+            self.status_label.setText("Status: Herbivores extinct")
+            QMessageBox.information(
+                self,
+                "Simulation Ended",
+                "All herbivores died. Foxes have no food left."
+            )
             return
 
         if self.engine.current_tick % 10 == 0 and self.engine.current_tick != 0:
@@ -338,11 +401,17 @@ class MainWindow(QWidget):
         plants_count = state["counts"]["plants"]
         herbivores_count = state["counts"]["herbivores"]
         berry_count = state["counts"].get("berry_bushes", 0)
+        foxes_count = state["counts"].get("foxes", 0)
 
         total_energy = 0
         total_speed = 0
         total_vision = 0
         total_age = 0
+
+        total_fox_energy = 0
+        total_fox_hunger = 0
+        total_fox_age = 0
+
         total_plant_food = 0
         plant_food_count = 0
 
@@ -352,6 +421,11 @@ class MainWindow(QWidget):
                 total_speed += entity.get("speed", 0)
                 total_vision += entity.get("vision", 0)
                 total_age += entity.get("age", 0)
+
+            elif entity["type"] == "fox":
+                total_fox_energy += entity.get("energy", 0)
+                total_fox_hunger += entity.get("hunger", 0)
+                total_fox_age += entity.get("age", 0)
 
             elif entity["type"] == "plant":
                 total_plant_food += entity.get("food_value", 0)
@@ -368,21 +442,32 @@ class MainWindow(QWidget):
             average_vision = 0
             average_age = 0
 
+        if foxes_count > 0:
+            average_fox_energy = total_fox_energy / foxes_count
+            average_fox_hunger = total_fox_hunger / foxes_count
+            average_fox_age = total_fox_age / foxes_count
+        else:
+            average_fox_energy = 0
+            average_fox_hunger = 0
+            average_fox_age = 0
+
         if plant_food_count > 0:
             average_food = total_plant_food / plant_food_count
         else:
             average_food = 0
 
         return (
-            state, plants_count, berry_count, herbivores_count,
-            average_energy, average_speed, average_vision,
-            average_age, average_food
+            state, plants_count, berry_count, herbivores_count, foxes_count,
+            average_energy, average_fox_energy, average_fox_hunger,
+            average_speed, average_vision, average_age, average_fox_age,
+            average_food
         )
 
     def update_labels(self):
         (
-            state, plants_count, berry_count, herbivores_count,
-            avg_energy, avg_speed, avg_vision, avg_age, avg_food
+            state, plants_count, berry_count, herbivores_count, foxes_count,
+            avg_energy, avg_fox_energy, avg_fox_hunger,
+            avg_speed, avg_vision, avg_age, avg_fox_age, avg_food
         ) = self.calculate_statistics()
 
         if self.min_herbivores == 0 and herbivores_count > 0:
@@ -391,6 +476,7 @@ class MainWindow(QWidget):
         self.max_plants = max(self.max_plants, plants_count)
         self.max_berry_bushes = max(self.max_berry_bushes, berry_count)
         self.max_herbivores = max(self.max_herbivores, herbivores_count)
+        self.max_foxes = max(self.max_foxes, foxes_count)
 
         if herbivores_count > 0:
             self.min_herbivores = min(self.min_herbivores, herbivores_count)
@@ -399,21 +485,29 @@ class MainWindow(QWidget):
         self.plants_label.setText(f"Plants: {plants_count}")
         self.berry_label.setText(f"Berry Bushes: {berry_count}")
         self.herbivores_label.setText(f"Herbivores: {herbivores_count}")
-        self.energy_label.setText(f"Average Energy: {avg_energy:.1f}")
+        self.foxes_label.setText(f"Foxes: {foxes_count}")
+
+        self.energy_label.setText(f"Average Herbivore Energy: {avg_energy:.1f}")
+        self.fox_energy_label.setText(f"Average Fox Energy: {avg_fox_energy:.1f}")
+        self.fox_hunger_label.setText(f"Average Fox Hunger: {avg_fox_hunger:.1f}")
+
         self.speed_info_label.setText(f"Average Speed: {avg_speed:.2f}")
         self.vision_info_label.setText(f"Average Vision: {avg_vision:.1f}")
-        self.age_info_label.setText(f"Average Age: {avg_age:.1f}")
+        self.age_info_label.setText(f"Average Herbivore Age: {avg_age:.1f}")
+        self.fox_age_label.setText(f"Average Fox Age: {avg_fox_age:.1f}")
         self.food_label.setText(f"Average Plant Food: {avg_food:.1f}")
 
         self.max_plants_label.setText(f"Max Plants: {self.max_plants}")
         self.max_berry_label.setText(f"Max Berry Bushes: {self.max_berry_bushes}")
         self.max_herbivores_label.setText(f"Max Herbivores: {self.max_herbivores}")
+        self.max_foxes_label.setText(f"Max Foxes: {self.max_foxes}")
         self.min_herbivores_label.setText(f"Min Herbivores: {self.min_herbivores}")
 
     def add_table_row(self):
         (
-            state, plants_count, berry_count, herbivores_count,
-            avg_energy, avg_speed, avg_vision, avg_age, avg_food
+            state, plants_count, berry_count, herbivores_count, foxes_count,
+            avg_energy, avg_fox_energy, avg_fox_hunger,
+            avg_speed, avg_vision, avg_age, avg_fox_age, avg_food
         ) = self.calculate_statistics()
 
         row = self.table.rowCount()
@@ -423,11 +517,14 @@ class MainWindow(QWidget):
         self.table.setItem(row, 1, QTableWidgetItem(str(plants_count)))
         self.table.setItem(row, 2, QTableWidgetItem(str(berry_count)))
         self.table.setItem(row, 3, QTableWidgetItem(str(herbivores_count)))
-        self.table.setItem(row, 4, QTableWidgetItem(f"{avg_energy:.1f}"))
-        self.table.setItem(row, 5, QTableWidgetItem(f"{avg_speed:.2f}"))
-        self.table.setItem(row, 6, QTableWidgetItem(f"{avg_vision:.1f}"))
-        self.table.setItem(row, 7, QTableWidgetItem(f"{avg_age:.1f}"))
-        self.table.setItem(row, 8, QTableWidgetItem(f"{avg_food:.1f}"))
+        self.table.setItem(row, 4, QTableWidgetItem(str(foxes_count)))
+        self.table.setItem(row, 5, QTableWidgetItem(f"{avg_energy:.1f}"))
+        self.table.setItem(row, 6, QTableWidgetItem(f"{avg_fox_energy:.1f}"))
+        self.table.setItem(row, 7, QTableWidgetItem(f"{avg_fox_hunger:.1f}"))
+        self.table.setItem(row, 8, QTableWidgetItem(f"{avg_speed:.2f}"))
+        self.table.setItem(row, 9, QTableWidgetItem(f"{avg_vision:.1f}"))
+        self.table.setItem(row, 10, QTableWidgetItem(f"{avg_age:.1f}"))
+        self.table.setItem(row, 11, QTableWidgetItem(f"{avg_food:.1f}"))
 
     def save_table_to_csv(self):
         if self.table.rowCount() == 0:
@@ -447,8 +544,9 @@ class MainWindow(QWidget):
         try:
             with open(filename, "w", encoding="utf-8") as file:
                 file.write(
-                    "Tick,Plants,Berry Bushes,Herbivores,"
-                    "Avg Energy,Avg Speed,Avg Vision,Avg Age,Avg Plant Food\n"
+                    "Tick,Plants,Berry Bushes,Herbivores,Foxes,"
+                    "Avg Herbivore Energy,Avg Fox Energy,Avg Fox Hunger,"
+                    "Avg Speed,Avg Vision,Avg Herbivore Age,Avg Plant Food\n"
                 )
 
                 for row in range(self.table.rowCount()):
