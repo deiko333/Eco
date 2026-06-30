@@ -54,6 +54,8 @@ class Fox(Organism):
     def __init__(self, id, x, y, health, hunger, energy, age, speed, vision):
         super().__init__(id, x,y,health,energy,age,speed,vision)
         self.hunger = hunger
+        self.wander_dx = random.uniform(-1, 1)
+        self.wander_dy = random.uniform(-1, 1)
 
     def find_prey(self):
         pass
@@ -117,10 +119,10 @@ class World:
                     random.randint(0, self.height),
                     100,
                     0,
-                    150,
+                    200,
                     0,
                     4,
-                    150
+                    100
                 )
             )
 
@@ -208,7 +210,7 @@ class SimulationEngine:
 
             if herbivore.energy > 250 and herbivore.reproduce_cooldown <= 0 and herbivore.age > 150:
                 herbivore.energy -= 120
-                herbivore.reproduce_cooldown = 200
+                herbivore.reproduce_cooldown = 130
 
                 self.world.herbivores.append(
                     Herbivore(
@@ -255,17 +257,23 @@ class SimulationEngine:
                     fox.x += (dx / dist) * fox.speed
                     fox.y += (dy / dist) * fox.speed
             else:
-                fox.x += random.randint(-1,1) * fox.speed
-                fox.y += random.randint(-1,1) * fox.speed
+                if random.random() < 0.15:
+                    fox.wander_dx = random.uniform(-1, 1)
+                    fox.wander_dy = random.uniform(-1, 1)
+                fox.x += fox.wander_dx * fox.speed
+                fox.y += fox.wander_dy * fox.speed
 
             fox.x = max(0, min(fox.x, self.world.width))
             fox.y = max(0, min(fox.y, self.world.height))
 
-            fox.energy -= (0.3 + fox.speed * 0.04)
+            fox.energy -= (0.2 + fox.speed * 0.02)
             fox.hunger += 1
 
+            if fox.hunger > 300:
+                fox.energy -= 5
+
             #hunt
-            if closest_prey and closest_distance < 20:
+            if closest_prey and closest_distance < 22:
                 fox.energy += 120
                 fox.hunger = 0
                 if closest_prey in self.world.herbivores:
@@ -273,10 +281,46 @@ class SimulationEngine:
                         self.world.herbivores.remove(closest_prey)
                     except ValueError:
                         pass
+            fox.reproduce_cooldown -= 1
+
+            if fox.energy > 300 and fox.reproduce_cooldown <= 0 and fox.age > 150 and len(self.world.foxes) < len(self.world.herbivores) // 6:
+                fox.energy -= 150
+                fox.reproduce_cooldown = 350
+
+                self.world.foxes.append(
+                    Fox(
+                        random.randint(100000, 999999),
+                        fox.x + random.randint(-10, 10),
+                        fox.y + random.randint(-10, 10),
+                        100,
+                        0,
+                        100,
+                        0,
+                        max(1, fox.speed + random.uniform(-0.3, 0.3)),
+                        max(20, fox.vision + random.randint(-5, 5))
+                    )
+                )
 
             fox.age += 1
             if fox.energy <= 0 or fox.age >= fox.max_age:
                 self.world.foxes.remove(fox)
+
+             # fox reintroduction if extinct
+        if len(self.world.foxes) == 0 and len(self.world.herbivores) > 30:
+            for _ in range(2):
+                self.world.foxes.append(
+                    Fox(
+                        random.randint(100000, 999999),
+                        random.randint(0, self.world.width),
+                        random.randint(0, self.world.height),
+                        100,
+                        0,
+                        200,
+                        0,
+                        4,
+                        150
+                    )
+                )
 
         # plant regrowth
         if self.current_tick % 5 == 0:
