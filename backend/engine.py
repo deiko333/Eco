@@ -430,7 +430,7 @@ class SimulationEngine:
                 "energy" : fox.energy,
                 "hunger" : fox.hunger,
                 "age" : fox.age,
-                "vision": round(herbivore.vision, 1)
+                "vision": round(fox.vision, 1)
 
             })
 
