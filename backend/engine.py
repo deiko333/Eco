@@ -43,6 +43,10 @@ class BerryBush:
 class Herbivore(Organism):
     def __init__(self, id, x, y, health, energy, age, speed, vision):
         super().__init__(id, x, y, health, energy, age, speed, vision)
+        self.wander_dx = random.uniform(-1, 1)
+        self.wander_dy = random.uniform(-1, 1)
+        self.nearest_fox_distance = float("inf")
+
 
     def find_food(self):
         pass
@@ -122,7 +126,7 @@ class World:
                     200,
                     0,
                     4,
-                    100
+                    200
                 )
             )
 
@@ -168,9 +172,32 @@ class SimulationEngine:
                     closest_distance = distance
                     closest_plant = plant
 
+            
+            # flee from nearby fox
+            nearest_fox = None
+            nearest_fox_distance = float("inf")
+            danger_radius = 200
 
+            for fox in self.world.foxes:
+                dist_to_fox = (
+                    (herbivore.x - fox.x) ** 2 +
+                    (herbivore.y - fox.y) ** 2
+                ) ** 0.5
+                if dist_to_fox < danger_radius and dist_to_fox < nearest_fox_distance:
+                    nearest_fox_distance = dist_to_fox
+                    nearest_fox = fox
+
+            if nearest_fox:
+                herbivore.nearest_fox_distance = nearest_fox_distance
+                dx = herbivore.x - nearest_fox.x
+                dy = herbivore.y - nearest_fox.y
+                dist = (dx*dx + dy*dy) ** 0.5
+                if dist > 0:
+                    herbivore.x += (dx / dist) * herbivore.speed * 1.2
+                    herbivore.y += (dy / dist) * herbivore.speed * 1.2
+                    
             # move toward food if exists
-            if closest_plant:
+            elif closest_plant:
 
                 dx = closest_plant.x - herbivore.x
                 dy = closest_plant.y - herbivore.y
@@ -180,10 +207,13 @@ class SimulationEngine:
                 if dist > 0:
                     herbivore.x += (dx / dist) * herbivore.speed
                     herbivore.y += (dy / dist) * herbivore.speed
+            # fallback random movement
             else:
-                # fallback random movement
-                herbivore.x += random.randint(-1, 1) * herbivore.speed
-                herbivore.y += random.randint(-1, 1) * herbivore.speed
+                if random.random() < 0.1:
+                    herbivore.wander_dx = random.uniform(-1, 1)
+                    herbivore.wander_dy = random.uniform(-1, 1)
+                herbivore.x += herbivore.wander_dx * herbivore.speed
+                herbivore.y += herbivore.wander_dy * herbivore.speed
 
             # bounds
             herbivore.x = max(0, min(herbivore.x, self.world.width))
@@ -266,7 +296,7 @@ class SimulationEngine:
             fox.x = max(0, min(fox.x, self.world.width))
             fox.y = max(0, min(fox.y, self.world.height))
 
-            fox.energy -= (0.2 + fox.speed * 0.02)
+            fox.energy -= (0.15 + fox.speed * 0.01)
             fox.hunger += 1
 
             if fox.hunger > 300:
@@ -274,7 +304,7 @@ class SimulationEngine:
 
             #hunt
             if closest_prey and closest_distance < 22:
-                fox.energy += 120
+                fox.energy += 150
                 fox.hunger = 0
                 if closest_prey in self.world.herbivores:
                     try:
@@ -282,6 +312,21 @@ class SimulationEngine:
                     except ValueError:
                         pass
             fox.reproduce_cooldown -= 1
+
+            # eat berries if hungry and nearby
+            for bush in self.world.berry_bushes[:]:
+                dist_to_bush = (
+                    (fox.x - bush.x) ** 2 +
+                    (fox.y - bush.y) ** 2
+                ) ** 0.5
+                if dist_to_bush < 25 and fox.hunger > 100:
+                    fox.energy += 30
+                    fox.hunger = max(0, fox.hunger - 50)
+                    try:
+                        self.world.berry_bushes.remove(bush)
+                    except ValueError:
+                        pass
+                    break
 
             if fox.energy > 300 and fox.reproduce_cooldown <= 0 and fox.age > 150 and len(self.world.foxes) < len(self.world.herbivores) // 6:
                 fox.energy -= 150
@@ -372,7 +417,9 @@ class SimulationEngine:
                 "energy": herbivore.energy,
                 "speed": round(herbivore.speed, 2),
                 "vision": round(herbivore.vision, 1),
-                "age": herbivore.age
+                "age": herbivore.age,
+                "nearest_fox_dist": round(herbivore.nearest_fox_distance, 1)
+
             })
 
         for fox in self.world.foxes:
