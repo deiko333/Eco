@@ -429,7 +429,9 @@ class SimulationEngine:
                 "y" : fox.y,
                 "energy" : fox.energy,
                 "hunger" : fox.hunger,
-                "age" : fox.age           
+                "age" : fox.age,
+                "vision": round(herbivore.vision, 1)
+
             })
 
         return {
