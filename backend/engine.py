@@ -12,6 +12,7 @@ class Organism:
         self.vision = vision
         self.reproduce_cooldown = 0
         self.max_age = random.randint(800, 1500)
+        self.thirst = 0
 
     def move(self):
         pass
@@ -38,6 +39,13 @@ class BerryBush:
         self.y = y
         self.food_value = 50
         self.age = 0
+
+class WaterSource:
+    def __init__(self, id, x, y, radius):
+        self.id = id
+        self.x = x
+        self.y = y
+        self.radius = radius
 
 
 class Herbivore(Organism):
@@ -75,6 +83,7 @@ class World:
         self.herbivores = []
         self.berry_bushes = []
         self.foxes = []
+        self.water_sources = []
         self.width = 1000
         self.height = 700
 
@@ -129,7 +138,16 @@ class World:
                     200
                 )
             )
-
+    def spawn_water_sources(self):
+        for i in range(5):
+            self.water_sources.append(
+                WaterSource(
+                    i,
+                    random.randint(100, self.width - 100),
+                    random.randint(100, self.height - 100),
+                    40
+                )
+            )
 
 class SimulationEngine:
     def __init__(self):
@@ -141,6 +159,8 @@ class SimulationEngine:
         self.world.spawn_herbivores()
         self.world.spawn_berry_bushes()
         self.world.spawn_foxes()
+        self.world.spawn_water_sources()
+
 
     def start(self):
         self.running = True
@@ -174,6 +194,7 @@ class SimulationEngine:
 
             
             # flee from nearby fox
+            herbivore.thirst += 1
             nearest_fox = None
             nearest_fox_distance = float("inf")
             danger_radius = 200
@@ -195,7 +216,26 @@ class SimulationEngine:
                 if dist > 0:
                     herbivore.x += (dx / dist) * herbivore.speed * 1.2
                     herbivore.y += (dy / dist) * herbivore.speed * 1.2
-                    
+
+            elif herbivore.thirst > 200:
+                nearest_water = None
+                nearest_water_dist = float("inf")
+                for water in self.world.water_sources:
+                    d = ((herbivore.x - water.x)**2 + (herbivore.y - water.y)**2) ** 0.5
+                    if d < nearest_water_dist:
+                        nearest_water_dist = d
+                        nearest_water = water
+                if nearest_water:
+                    dx = nearest_water.x - herbivore.x
+                    dy = nearest_water.y - herbivore.y
+                    dist = (dx*dx + dy*dy) ** 0.5
+                    if dist > 0:
+                        herbivore.x += (dx / dist) * herbivore.speed
+                        herbivore.y += (dy / dist) * herbivore.speed
+                    if nearest_water_dist < nearest_water.radius:
+                        herbivore.thirst = 0
+                        herbivore.energy += 10
+
             # move toward food if exists
             elif closest_plant:
 
@@ -409,6 +449,14 @@ class SimulationEngine:
                 "food_value" : round(bush.food_value, 1)                                     
             })
 
+        for water in self.world.water_sources:
+            data.append({
+                "type": "water",
+                "x": water.x,
+                "y": water.y,
+                "radius": water.radius
+            })
+
         for herbivore in self.world.herbivores:
             data.append({
                 "type": "herbivore",
@@ -418,7 +466,9 @@ class SimulationEngine:
                 "speed": round(herbivore.speed, 2),
                 "vision": round(herbivore.vision, 1),
                 "age": herbivore.age,
-                "nearest_fox_dist": round(herbivore.nearest_fox_distance, 1)
+                "nearest_fox_dist": round(herbivore.nearest_fox_distance, 1),
+                "thirst": herbivore.thirst
+
 
             })
 
@@ -441,6 +491,8 @@ class SimulationEngine:
                 "plants": len(self.world.plants),
                 "herbivores": len(self.world.herbivores),
                 "berry_bushes" : len(self.world.berry_bushes),
-                "foxes" : len(self.world.foxes)
+                "foxes" : len(self.world.foxes),
+                "water_sources": len(self.world.water_sources)
+
     }       
 }
