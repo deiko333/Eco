@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QPainter, QColor, QPen
 
-from backend.engine import SimulationEngine, Plant, Herbivore, Fox
+from backend.engine import SimulationEngine, Plant, Herbivore, Fox, WaterSource
 
 
 class EcosystemCanvas(QWidget):
@@ -34,7 +34,15 @@ class EcosystemCanvas(QWidget):
             x = int(entity["x"])
             y = int(entity["y"])
 
-            if entity["type"] == "plant":
+            if entity["type"] == "water":
+                radius = int(entity.get("radius", 40))
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(QColor(100, 181, 246, 90))
+                painter.drawEllipse(x - radius, y - radius, radius * 2, radius * 2)
+                painter.setPen(QColor("black"))
+                painter.drawText(x - 8, y + 5, "💧")
+
+            elif entity["type"] == "plant":
                 painter.setPen(QColor("black"))
                 painter.drawText(x, y, "🌿")
 
@@ -44,6 +52,7 @@ class EcosystemCanvas(QWidget):
 
             elif entity["type"] == "herbivore":
                 energy = entity.get("energy", 0)
+                thirst = entity.get("thirst", 0)
                 vision = int(entity.get("vision", 0))
                 nearest_fox_dist = entity.get("nearest_fox_dist", 9999)
 
@@ -56,12 +65,13 @@ class EcosystemCanvas(QWidget):
                 painter.drawText(x, y, "🐰")
 
                 if self.show_bars:
-                    self.draw_energy_bar(painter, x, y + 8, energy, 300)
+                    self.draw_bar(painter, x, y + 8, energy, 300, "energy")
+                    self.draw_bar(painter, x, y + 14, thirst, 300, "thirst")
 
                     if nearest_fox_dist < 80:
                         painter.setPen(Qt.NoPen)
                         painter.setBrush(QColor("#C62828"))
-                        painter.drawRect(x, y + 14, 24, 3)
+                        painter.drawRect(x, y + 20, 24, 3)
 
             elif entity["type"] == "fox":
                 energy = entity.get("energy", 0)
@@ -77,21 +87,12 @@ class EcosystemCanvas(QWidget):
                 painter.drawText(x, y, "🦊")
 
                 if self.show_bars:
-                    self.draw_energy_bar(painter, x, y + 8, energy, 300)
-
-                    painter.setPen(Qt.NoPen)
-                    if hunger > 250:
-                        painter.setBrush(QColor("#B71C1C"))
-                    elif hunger > 120:
-                        painter.setBrush(QColor("#EF6C00"))
-                    else:
-                        painter.setBrush(QColor("#43A047"))
-
-                    painter.drawRect(x, y + 14, 24, 3)
+                    self.draw_bar(painter, x, y + 8, energy, 300, "energy")
+                    self.draw_bar(painter, x, y + 14, hunger, 300, "hunger")
 
         self.draw_legend(painter)
 
-    def draw_energy_bar(self, painter, x, y, value, max_value):
+    def draw_bar(self, painter, x, y, value, max_value, bar_type):
         width = 24
         height = 4
 
@@ -105,40 +106,64 @@ class EcosystemCanvas(QWidget):
         painter.setBrush(QColor("#CCCCCC"))
         painter.drawRect(x, y, width, height)
 
-        if percent > 0.6:
-            painter.setBrush(QColor("#2E7D32"))
-        elif percent > 0.3:
-            painter.setBrush(QColor("#FBC02D"))
+        if bar_type == "energy":
+            if percent > 0.6:
+                painter.setBrush(QColor("#2E7D32"))
+            elif percent > 0.3:
+                painter.setBrush(QColor("#FBC02D"))
+            else:
+                painter.setBrush(QColor("#C62828"))
+
+        elif bar_type == "thirst":
+            if percent > 0.7:
+                painter.setBrush(QColor("#B71C1C"))
+            elif percent > 0.4:
+                painter.setBrush(QColor("#039BE5"))
+            else:
+                painter.setBrush(QColor("#81D4FA"))
+
         else:
-            painter.setBrush(QColor("#C62828"))
+            if percent > 0.7:
+                painter.setBrush(QColor("#B71C1C"))
+            elif percent > 0.4:
+                painter.setBrush(QColor("#EF6C00"))
+            else:
+                painter.setBrush(QColor("#43A047"))
 
         painter.drawRect(x, y, int(width * percent), height)
 
     def draw_legend(self, painter):
         painter.setPen(QColor("black"))
 
-        painter.drawText(20, 30, "🌿 Plant")
-        painter.drawText(20, 55, "🫐 Berry bush")
-        painter.drawText(20, 80, "🐰 Herbivore")
-        painter.drawText(20, 105, "🦊 Fox")
+        painter.drawText(20, 30, "💧 Water")
+        painter.drawText(20, 55, "🌿 Plant")
+        painter.drawText(20, 80, "🫐 Berry bush")
+        painter.drawText(20, 105, "🐰 Herbivore")
+        painter.drawText(20, 130, "🦊 Fox")
 
         painter.setPen(Qt.NoPen)
         painter.setBrush(QColor("#2E7D32"))
-        painter.drawRect(20, 125, 24, 4)
+        painter.drawRect(20, 150, 24, 4)
         painter.setPen(QColor("black"))
-        painter.drawText(55, 132, "Energy")
+        painter.drawText(55, 157, "Energy")
+
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#039BE5"))
+        painter.drawRect(20, 175, 24, 4)
+        painter.setPen(QColor("black"))
+        painter.drawText(55, 182, "Thirst")
 
         painter.setPen(Qt.NoPen)
         painter.setBrush(QColor("#EF6C00"))
-        painter.drawRect(20, 150, 24, 4)
+        painter.drawRect(20, 200, 24, 4)
         painter.setPen(QColor("black"))
-        painter.drawText(55, 157, "Hunger / danger")
+        painter.drawText(55, 207, "Hunger / danger")
 
         painter.setBrush(Qt.NoBrush)
         painter.setPen(QPen(QColor(120, 120, 120), 1))
-        painter.drawEllipse(20, 170, 18, 18)
+        painter.drawEllipse(20, 220, 18, 18)
         painter.setPen(QColor("black"))
-        painter.drawText(55, 184, "Vision range")
+        painter.drawText(55, 234, "Vision range")
 
 
 class MainWindow(QWidget):
@@ -155,17 +180,19 @@ class MainWindow(QWidget):
         self.last_fox_count = 0
 
         self.setWindowTitle("EcoBalance - Ecosystem Simulator")
-        self.setGeometry(100, 100, 1450, 850)
+        self.setGeometry(100, 100, 1480, 850)
 
         self.title_label = QLabel("EcoBalance Simulator")
 
         self.tick_label = QLabel("Tick: 0")
         self.plants_label = QLabel("Plants: 0")
         self.berry_label = QLabel("Berry Bushes: 0")
+        self.water_label = QLabel("Water Sources: 0")
         self.herbivores_label = QLabel("Herbivores: 0")
         self.foxes_label = QLabel("Foxes: 0")
 
         self.energy_label = QLabel("Average Herbivore Energy: 0")
+        self.thirst_label = QLabel("Average Herbivore Thirst: 0")
         self.fox_energy_label = QLabel("Average Fox Energy: 0")
         self.fox_hunger_label = QLabel("Average Fox Hunger: 0")
 
@@ -195,6 +222,10 @@ class MainWindow(QWidget):
         self.foxes_input.setPlaceholderText("Foxes count")
         self.foxes_input.setText("4")
 
+        self.water_input = QLineEdit()
+        self.water_input.setPlaceholderText("Water sources count")
+        self.water_input.setText("5")
+
         self.speed_label = QLabel("Simulation Speed: 50 ms")
 
         self.speed_slider = QSlider(Qt.Horizontal)
@@ -207,7 +238,7 @@ class MainWindow(QWidget):
         self.vision_checkbox.setChecked(True)
         self.vision_checkbox.toggled.connect(self.change_visual_settings)
 
-        self.bars_checkbox = QCheckBox("Show energy/hunger bars")
+        self.bars_checkbox = QCheckBox("Show energy/thirst/hunger bars")
         self.bars_checkbox.setChecked(True)
         self.bars_checkbox.toggled.connect(self.change_visual_settings)
 
@@ -226,10 +257,10 @@ class MainWindow(QWidget):
         self.save_button.clicked.connect(self.save_table_to_csv)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(13)
+        self.table.setColumnCount(15)
         self.table.setHorizontalHeaderLabels([
-            "Tick", "Plants", "Berry Bushes", "Herbivores", "Foxes",
-            "Avg Herb Energy", "Avg Fox Energy", "Avg Fox Hunger",
+            "Tick", "Plants", "Berry Bushes", "Water", "Herbivores", "Foxes",
+            "Avg Herb Energy", "Avg Thirst", "Avg Fox Energy", "Avg Fox Hunger",
             "Avg Speed", "Avg Vision", "Avg Herb Age", "Avg Plant Food",
             "Danger"
         ])
@@ -252,6 +283,9 @@ class MainWindow(QWidget):
         side_layout.addWidget(QLabel("Initial Foxes:"))
         side_layout.addWidget(self.foxes_input)
 
+        side_layout.addWidget(QLabel("Water Sources:"))
+        side_layout.addWidget(self.water_input)
+
         side_layout.addWidget(self.apply_button)
 
         side_layout.addWidget(self.speed_label)
@@ -263,10 +297,12 @@ class MainWindow(QWidget):
         side_layout.addWidget(self.tick_label)
         side_layout.addWidget(self.plants_label)
         side_layout.addWidget(self.berry_label)
+        side_layout.addWidget(self.water_label)
         side_layout.addWidget(self.herbivores_label)
         side_layout.addWidget(self.foxes_label)
 
         side_layout.addWidget(self.energy_label)
+        side_layout.addWidget(self.thirst_label)
         side_layout.addWidget(self.fox_energy_label)
         side_layout.addWidget(self.fox_hunger_label)
 
@@ -335,12 +371,13 @@ class MainWindow(QWidget):
             plants_count = int(self.plants_input.text())
             herbivores_count = int(self.herbivores_input.text())
             foxes_count = int(self.foxes_input.text())
+            water_count = int(self.water_input.text())
 
-            if plants_count < 0 or herbivores_count < 0 or foxes_count < 0:
+            if plants_count < 0 or herbivores_count < 0 or foxes_count < 0 or water_count < 0:
                 QMessageBox.warning(self, "Input Error", "Counts must be positive numbers.")
                 return
 
-            if plants_count > 1000 or herbivores_count > 200 or foxes_count > 80:
+            if plants_count > 1000 or herbivores_count > 200 or foxes_count > 80 or water_count > 30:
                 QMessageBox.warning(self, "Input Error", "Too many organisms. Try smaller numbers.")
                 return
 
@@ -351,45 +388,27 @@ class MainWindow(QWidget):
             self.engine.world.herbivores = []
             self.engine.world.berry_bushes = []
             self.engine.world.foxes = []
+            self.engine.world.water_sources = []
             self.engine.current_tick = 0
 
             for i in range(plants_count):
                 self.engine.world.plants.append(
-                    Plant(
-                        i,
-                        random.randint(0, self.engine.world.width),
-                        random.randint(0, self.engine.world.height),
-                        20
-                    )
+                    Plant(i, random.randint(0, self.engine.world.width), random.randint(0, self.engine.world.height), 20)
                 )
 
             for i in range(herbivores_count):
                 self.engine.world.herbivores.append(
-                    Herbivore(
-                        i,
-                        random.randint(0, self.engine.world.width),
-                        random.randint(0, self.engine.world.height),
-                        100,
-                        150,
-                        0,
-                        3,
-                        150
-                    )
+                    Herbivore(i, random.randint(0, self.engine.world.width), random.randint(0, self.engine.world.height), 100, 150, 0, 3, 150)
                 )
 
             for i in range(foxes_count):
                 self.engine.world.foxes.append(
-                    Fox(
-                        i,
-                        random.randint(0, self.engine.world.width),
-                        random.randint(0, self.engine.world.height),
-                        100,
-                        0,
-                        200,
-                        0,
-                        4,
-                        200
-                    )
+                    Fox(i, random.randint(0, self.engine.world.width), random.randint(0, self.engine.world.height), 100, 0, 200, 0, 4, 200)
+                )
+
+            for i in range(water_count):
+                self.engine.world.water_sources.append(
+                    WaterSource(i, random.randint(100, self.engine.world.width - 100), random.randint(100, self.engine.world.height - 100), 40)
                 )
 
             self.engine.world.spawn_berry_bushes()
@@ -421,9 +440,12 @@ class MainWindow(QWidget):
         self.canvas.show_bars = self.bars_checkbox.isChecked()
         self.canvas.update()
 
-    def get_ecosystem_status(self, plants_count, herbivores_count, foxes_count, danger_count):
+    def get_ecosystem_status(self, plants_count, herbivores_count, foxes_count, danger_count, avg_thirst):
         if herbivores_count == 0:
             return "Status: Herbivores extinct"
+
+        if avg_thirst > 220:
+            return "Status: Herbivores need water"
 
         if foxes_count == 0 and herbivores_count > 30:
             return "Status: Foxes migrated, reintroduction expected"
@@ -457,11 +479,7 @@ class MainWindow(QWidget):
         if self.engine.running and state["counts"]["herbivores"] == 0:
             self.engine.pause()
             self.status_label.setText("Status: Herbivores extinct")
-            QMessageBox.information(
-                self,
-                "Simulation Ended",
-                "All herbivores died. Foxes have no food left."
-            )
+            QMessageBox.information(self, "Simulation Ended", "All herbivores died. Foxes have no food left.")
             return
 
         if self.engine.current_tick % 10 == 0 and self.engine.current_tick != 0:
@@ -474,8 +492,10 @@ class MainWindow(QWidget):
         herbivores_count = state["counts"]["herbivores"]
         berry_count = state["counts"].get("berry_bushes", 0)
         foxes_count = state["counts"].get("foxes", 0)
+        water_count = state["counts"].get("water_sources", 0)
 
         total_energy = 0
+        total_thirst = 0
         total_speed = 0
         total_vision = 0
         total_age = 0
@@ -491,6 +511,7 @@ class MainWindow(QWidget):
         for entity in state["entities"]:
             if entity["type"] == "herbivore":
                 total_energy += entity.get("energy", 0)
+                total_thirst += entity.get("thirst", 0)
                 total_speed += entity.get("speed", 0)
                 total_vision += entity.get("vision", 0)
                 total_age += entity.get("age", 0)
@@ -509,11 +530,13 @@ class MainWindow(QWidget):
 
         if herbivores_count > 0:
             average_energy = total_energy / herbivores_count
+            average_thirst = total_thirst / herbivores_count
             average_speed = total_speed / herbivores_count
             average_vision = total_vision / herbivores_count
             average_age = total_age / herbivores_count
         else:
             average_energy = 0
+            average_thirst = 0
             average_speed = 0
             average_vision = 0
             average_age = 0
@@ -533,16 +556,16 @@ class MainWindow(QWidget):
             average_food = 0
 
         return (
-            state, plants_count, berry_count, herbivores_count, foxes_count,
-            average_energy, average_fox_energy, average_fox_hunger,
+            state, plants_count, berry_count, water_count, herbivores_count, foxes_count,
+            average_energy, average_thirst, average_fox_energy, average_fox_hunger,
             average_speed, average_vision, average_age, average_fox_age,
             average_food, danger_count
         )
 
     def update_labels(self):
         (
-            state, plants_count, berry_count, herbivores_count, foxes_count,
-            avg_energy, avg_fox_energy, avg_fox_hunger,
+            state, plants_count, berry_count, water_count, herbivores_count, foxes_count,
+            avg_energy, avg_thirst, avg_fox_energy, avg_fox_hunger,
             avg_speed, avg_vision, avg_age, avg_fox_age,
             avg_food, danger_count
         ) = self.calculate_statistics()
@@ -561,10 +584,12 @@ class MainWindow(QWidget):
         self.tick_label.setText(f"Tick: {state['tick']}")
         self.plants_label.setText(f"Plants: {plants_count}")
         self.berry_label.setText(f"Berry Bushes: {berry_count}")
+        self.water_label.setText(f"Water Sources: {water_count}")
         self.herbivores_label.setText(f"Herbivores: {herbivores_count}")
         self.foxes_label.setText(f"Foxes: {foxes_count}")
 
         self.energy_label.setText(f"Average Herbivore Energy: {avg_energy:.1f}")
+        self.thirst_label.setText(f"Average Herbivore Thirst: {avg_thirst:.1f}")
         self.fox_energy_label.setText(f"Average Fox Energy: {avg_fox_energy:.1f}")
         self.fox_hunger_label.setText(f"Average Fox Hunger: {avg_fox_hunger:.1f}")
 
@@ -575,13 +600,9 @@ class MainWindow(QWidget):
         self.food_label.setText(f"Average Plant Food: {avg_food:.1f}")
         self.danger_label.setText(f"Herbivores in Danger: {danger_count}")
 
-        ecosystem_status = self.get_ecosystem_status(
-            plants_count,
-            herbivores_count,
-            foxes_count,
-            danger_count
+        self.status_label.setText(
+            self.get_ecosystem_status(plants_count, herbivores_count, foxes_count, danger_count, avg_thirst)
         )
-        self.status_label.setText(ecosystem_status)
 
         self.max_plants_label.setText(f"Max Plants: {self.max_plants}")
         self.max_berry_label.setText(f"Max Berry Bushes: {self.max_berry_bushes}")
@@ -591,8 +612,8 @@ class MainWindow(QWidget):
 
     def add_table_row(self):
         (
-            state, plants_count, berry_count, herbivores_count, foxes_count,
-            avg_energy, avg_fox_energy, avg_fox_hunger,
+            state, plants_count, berry_count, water_count, herbivores_count, foxes_count,
+            avg_energy, avg_thirst, avg_fox_energy, avg_fox_hunger,
             avg_speed, avg_vision, avg_age, avg_fox_age,
             avg_food, danger_count
         ) = self.calculate_statistics()
@@ -600,31 +621,22 @@ class MainWindow(QWidget):
         row = self.table.rowCount()
         self.table.insertRow(row)
 
-        self.table.setItem(row, 0, QTableWidgetItem(str(state["tick"])))
-        self.table.setItem(row, 1, QTableWidgetItem(str(plants_count)))
-        self.table.setItem(row, 2, QTableWidgetItem(str(berry_count)))
-        self.table.setItem(row, 3, QTableWidgetItem(str(herbivores_count)))
-        self.table.setItem(row, 4, QTableWidgetItem(str(foxes_count)))
-        self.table.setItem(row, 5, QTableWidgetItem(f"{avg_energy:.1f}"))
-        self.table.setItem(row, 6, QTableWidgetItem(f"{avg_fox_energy:.1f}"))
-        self.table.setItem(row, 7, QTableWidgetItem(f"{avg_fox_hunger:.1f}"))
-        self.table.setItem(row, 8, QTableWidgetItem(f"{avg_speed:.2f}"))
-        self.table.setItem(row, 9, QTableWidgetItem(f"{avg_vision:.1f}"))
-        self.table.setItem(row, 10, QTableWidgetItem(f"{avg_age:.1f}"))
-        self.table.setItem(row, 11, QTableWidgetItem(f"{avg_food:.1f}"))
-        self.table.setItem(row, 12, QTableWidgetItem(str(danger_count)))
+        values = [
+            state["tick"], plants_count, berry_count, water_count, herbivores_count, foxes_count,
+            f"{avg_energy:.1f}", f"{avg_thirst:.1f}", f"{avg_fox_energy:.1f}",
+            f"{avg_fox_hunger:.1f}", f"{avg_speed:.2f}", f"{avg_vision:.1f}",
+            f"{avg_age:.1f}", f"{avg_food:.1f}", danger_count
+        ]
+
+        for col, value in enumerate(values):
+            self.table.setItem(row, col, QTableWidgetItem(str(value)))
 
     def save_table_to_csv(self):
         if self.table.rowCount() == 0:
             QMessageBox.information(self, "No Data", "There is no simulation history to save.")
             return
 
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Simulation History",
-            "simulation_history.csv",
-            "CSV Files (*.csv)"
-        )
+        filename, _ = QFileDialog.getSaveFileName(self, "Save Simulation History", "simulation_history.csv", "CSV Files (*.csv)")
 
         if not filename:
             return
@@ -632,18 +644,16 @@ class MainWindow(QWidget):
         try:
             with open(filename, "w", encoding="utf-8") as file:
                 file.write(
-                    "Tick,Plants,Berry Bushes,Herbivores,Foxes,"
-                    "Avg Herbivore Energy,Avg Fox Energy,Avg Fox Hunger,"
+                    "Tick,Plants,Berry Bushes,Water,Herbivores,Foxes,"
+                    "Avg Herbivore Energy,Avg Thirst,Avg Fox Energy,Avg Fox Hunger,"
                     "Avg Speed,Avg Vision,Avg Herbivore Age,Avg Plant Food,Danger\n"
                 )
 
                 for row in range(self.table.rowCount()):
                     values = []
-
                     for col in range(self.table.columnCount()):
                         item = self.table.item(row, col)
                         values.append(item.text() if item else "")
-
                     file.write(",".join(values) + "\n")
 
             QMessageBox.information(self, "Saved", "Simulation history saved successfully.")
@@ -654,10 +664,8 @@ class MainWindow(QWidget):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
             self.close()
-
         elif event.key() == Qt.Key_R:
             self.reset_simulation()
-
         elif event.key() == Qt.Key_Space:
             if self.engine.running:
                 self.pause_simulation()
