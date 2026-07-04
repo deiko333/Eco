@@ -154,6 +154,8 @@ class SimulationEngine:
         self.world = World()
         self.running = False
         self.current_tick = 0
+        self.season = "summer"
+        self.season_tick = 0
 
         self.world.spawn_plants()
         self.world.spawn_herbivores()
@@ -173,6 +175,13 @@ class SimulationEngine:
             return
 
         self.current_tick += 1
+        # season cycle
+        self.season_tick += 1
+        if self.season_tick >= 1000:
+            self.season_tick = 0
+            seasons = ["spring", "summer", "autumn", "winter"]
+            current_index = seasons.index(self.season)
+            self.season = seasons[(current_index + 1) % 4]
 
         # HERBIVORES
         for herbivore in self.world.herbivores[:]:
@@ -261,8 +270,8 @@ class SimulationEngine:
 
             age_penalty = herbivore.age / herbivore.max_age * 0.2
             herbivore.energy = min(herbivore.energy, 300)
-            herbivore.energy -= (0.25 + herbivore.speed * 0.03 + age_penalty)
-
+            winter_penalty = 0.15 if self.season == "winter" else 0.05 if self.season == "autumn" else -0.05 if self.season == "spring" else 0
+            herbivore.energy -= (0.25 + herbivore.speed * 0.03 + age_penalty + winter_penalty)
             # eat plant
             if closest_plant and closest_distance < 25:
                 herbivore.energy += closest_plant.food_value
@@ -410,7 +419,7 @@ class SimulationEngine:
         # plant regrowth
         if self.current_tick % 5 == 0:
                 if len(self.world.plants) < 500:
-                    for _ in range(12):
+                    for _ in range(3 if self.season == "winter" else 6 if self.season == "autumn" else 15 if self.season == "spring" else 12):
                         self.world.plants.append(
                             Plant(
                                 self.current_tick,
@@ -419,7 +428,7 @@ class SimulationEngine:
                                 20
                             )
                         )
-                if len(self.world.berry_bushes) < 15:
+                if self.season in ("summer", "spring") and len(self.world.berry_bushes) < 15:
                     if random.random() < 0.3:
                         self.world.berry_bushes.append(
                             BerryBush(
@@ -486,6 +495,8 @@ class SimulationEngine:
 
         return {
             "tick": self.current_tick,
+            "season" : self.season,
+            "season_tick": self.season_tick,
             "entities": data,
             "counts": {
                 "plants": len(self.world.plants),
