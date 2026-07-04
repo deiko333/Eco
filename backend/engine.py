@@ -47,6 +47,12 @@ class WaterSource:
         self.y = y
         self.radius = radius
 
+class Shelter:
+    def __init__(self, id, x, y, radius):
+        self.id = id
+        self.x = x
+        self.y = y
+        self.radius = radius
 
 class Herbivore(Organism):
     def __init__(self, id, x, y, health, energy, age, speed, vision):
@@ -96,6 +102,7 @@ class World:
         self.berry_bushes = []
         self.foxes = []
         self.water_sources = []
+        self.shelters = []
         self.width = 1000
         self.height = 700
 
@@ -132,6 +139,17 @@ class World:
                     i,
                     random.randint(0, self.width),
                     random.randint(0, self.height)
+                )
+            )
+
+    def spawn_shelters(self):
+        for i in range(4):
+            self.shelters.append(
+                Shelter(
+                    i,
+                    random.randint(100, self.width - 100),
+                    random.randint(100, self.height - 100),
+                    50
                 )
             )
 
@@ -174,6 +192,7 @@ class SimulationEngine:
         self.world.spawn_berry_bushes()
         self.world.spawn_foxes()
         self.world.spawn_water_sources()
+        self.world.spawn_shelters()
 
 
     def start(self):
@@ -238,7 +257,7 @@ class SimulationEngine:
                     herbivore.x += (dx / dist) * herbivore.speed * 1.2
                     herbivore.y += (dy / dist) * herbivore.speed * 1.2
 
-            elif herbivore.thirst > 200:
+            elif herbivore.thirst > 200 and herbivore.energy > 80:
                 nearest_water = None
                 nearest_water_dist = float("inf")
 
@@ -272,7 +291,21 @@ class SimulationEngine:
                             herbivore.water_memory_x = nearest_water.x
                             herbivore.water_memory_y = nearest_water.y
                             herbivore.water_memory_timer = 800
-
+            elif self.season == "winter":
+                nearest_shelter = None
+                nearest_shelter_dist = float("inf")
+                for shelter in self.world.shelters:
+                    d = ((herbivore.x - shelter.x)**2 + (herbivore.y - shelter.y)**2) ** 0.5
+                    if d < herbivore.vision and d < nearest_shelter_dist:
+                        nearest_shelter_dist = d
+                        nearest_shelter = shelter
+                if nearest_shelter and nearest_shelter_dist > nearest_shelter.radius:
+                    dx = nearest_shelter.x - herbivore.x
+                    dy = nearest_shelter.y - herbivore.y
+                    dist = (dx*dx + dy*dy) ** 0.5
+                    if dist > 0:
+                        herbivore.x += (dx / dist) * herbivore.speed
+                        herbivore.y += (dy / dist) * herbivore.speed
             # move toward food if exists
             elif closest_plant:
 
@@ -290,11 +323,11 @@ class SimulationEngine:
                     dx = herbivore.memory_x - herbivore.x
                     dy = herbivore.memory_y - herbivore.y
                     dist = (dx*dx + dy*dy) ** 0.5
-                    if dist > 10:
+                    if dist > 30:
                         target_dx = dx / dist
                         target_dy = dy / dist
-                        herbivore.wander_dx += (target_dx - herbivore.wander_dx) * 0.1
-                        herbivore.wander_dy += (target_dy - herbivore.wander_dy) * 0.1
+                        herbivore.wander_dx += (target_dx - herbivore.wander_dx) * 0.5
+                        herbivore.wander_dy += (target_dy - herbivore.wander_dy) * 0.5
                     else:
                         herbivore.memory_x = None
                         herbivore.memory_y = None
@@ -315,7 +348,11 @@ class SimulationEngine:
 
             age_penalty = herbivore.age / herbivore.max_age * 0.2
             herbivore.energy = min(herbivore.energy, 300)
-            winter_penalty = 0.15 if self.season == "winter" else 0.05 if self.season == "autumn" else -0.05 if self.season == "spring" else 0
+            in_shelter = any(
+                ((herbivore.x - s.x)**2 + (herbivore.y - s.y)**2) ** 0.5 < s.radius
+                for s in self.world.shelters
+            )
+            winter_penalty = (0.01 if in_shelter else 0.02) if self.season == "winter" else 0.01 if self.season == "autumn" else -0.08 if self.season == "spring" else 0
             herbivore.energy -= (0.25 + herbivore.speed * 0.03 + age_penalty + winter_penalty)
             # eat plant
             if closest_plant and closest_distance < 25:
@@ -335,7 +372,7 @@ class SimulationEngine:
                         pass
             herbivore.reproduce_cooldown -= 1
 
-            if herbivore.energy > 250 and herbivore.reproduce_cooldown <= 0 and herbivore.age > 150:
+            if herbivore.energy > 250 and herbivore.reproduce_cooldown <= 0 and herbivore.age > 150 and self.season != "winter":
                 herbivore.energy -= 120
                 herbivore.reproduce_cooldown = 130
 
@@ -366,34 +403,49 @@ class SimulationEngine:
             closest_prey = None
             closest_distance = float("inf")
             for herbivore in self.world.herbivores:
-                
                 distance = (
                     (fox.x - herbivore.x) ** 2 +
                     (fox.y - herbivore.y) ** 2
                 ) ** 0.5
-
                 if distance < fox.vision and distance < closest_distance:
                     closest_distance = distance
                     closest_prey = herbivore
+
             if closest_prey:
                 dx = closest_prey.x - fox.x
                 dy = closest_prey.y - fox.y
                 dist = (dx*dx + dy*dy) ** 0.5
-                
                 if dist > 0:
                     fox.x += (dx / dist) * fox.speed
                     fox.y += (dy / dist) * fox.speed
+
+            elif self.season == "winter" and fox.energy > 100:
+                nearest_shelter = None
+                nearest_shelter_dist = float("inf")
+                for shelter in self.world.shelters:
+                    d = ((fox.x - shelter.x)**2 + (fox.y - shelter.y)**2) ** 0.5
+                    if d < fox.vision and d < nearest_shelter_dist:
+                        nearest_shelter_dist = d
+                        nearest_shelter = shelter
+                if nearest_shelter and nearest_shelter_dist > nearest_shelter.radius:
+                    dx = nearest_shelter.x - fox.x
+                    dy = nearest_shelter.y - fox.y
+                    dist = (dx*dx + dy*dy) ** 0.5
+                    if dist > 0:
+                        fox.x += (dx / dist) * fox.speed
+                        fox.y += (dy / dist) * fox.speed
+
             else:
                 if fox.memory_x is not None and fox.memory_timer > 0:
                     fox.memory_timer -= 1
                     dx = fox.memory_x - fox.x
                     dy = fox.memory_y - fox.y
                     dist = (dx*dx + dy*dy) ** 0.5
-                    if dist > 10:
+                    if dist > 30:
                         target_dx = dx / dist
                         target_dy = dy / dist
-                        fox.wander_dx += (target_dx - fox.wander_dx) * 0.1
-                        fox.wander_dy += (target_dy - fox.wander_dy) * 0.1
+                        fox.wander_dx += (target_dx - fox.wander_dx) * 0.05
+                        fox.wander_dy += (target_dy - fox.wander_dy) * 0.05
                     else:
                         fox.memory_x = None
                         fox.memory_y = None
@@ -411,14 +463,18 @@ class SimulationEngine:
             fox.x = max(0, min(fox.x, self.world.width))
             fox.y = max(0, min(fox.y, self.world.height))
 
-            fox.energy -= (0.15 + fox.speed * 0.01)
+            in_shelter = any(
+                ((fox.x - s.x)**2 + (fox.y - s.y)**2) ** 0.5 < s.radius
+                for s in self.world.shelters
+            )
+            fox_winter_penalty = (0.01 if in_shelter else 0.02) if self.season == "winter" else 0.01 if self.season == "autumn" else -0.04 if self.season == "spring" else 0
+            fox.energy -= (0.15 + fox.speed * 0.01 + fox_winter_penalty)
             fox.hunger += 1
             fox.thirst += 1
 
-            if fox.thirst > 300:
+            if fox.thirst > 300 and fox.energy > 100:
                 nearest_water = None
                 nearest_water_dist = float("inf")
-
                 if fox.water_memory_x is not None and fox.water_memory_timer > 0:
                     fox.water_memory_timer -= 1
                     dx = fox.water_memory_x - fox.x
@@ -452,7 +508,6 @@ class SimulationEngine:
             if fox.hunger > 300:
                 fox.energy -= 5
 
-            #hunt
             if closest_prey and closest_distance < 22:
                 fox.energy += 150
                 fox.hunger = 0
@@ -464,6 +519,7 @@ class SimulationEngine:
                         self.world.herbivores.remove(closest_prey)
                     except ValueError:
                         pass
+
             fox.reproduce_cooldown -= 1
 
             # eat berries if hungry and nearby
@@ -484,7 +540,6 @@ class SimulationEngine:
             if fox.energy > 300 and fox.reproduce_cooldown <= 0 and fox.age > 150 and len(self.world.foxes) < len(self.world.herbivores) // 6:
                 fox.energy -= 150
                 fox.reproduce_cooldown = 350
-
                 self.world.foxes.append(
                     Fox(
                         random.randint(100000, 999999),
@@ -523,7 +578,7 @@ class SimulationEngine:
         # plant regrowth
         if self.current_tick % 5 == 0:
                 if len(self.world.plants) < 500:
-                    for _ in range(3 if self.season == "winter" else 6 if self.season == "autumn" else 15 if self.season == "spring" else 12):
+                    for _ in range(6 if self.season == "winter" else 6 if self.season == "autumn" else 15 if self.season == "spring" else 12):
                         self.world.plants.append(
                             Plant(
                                 self.current_tick,
@@ -570,6 +625,14 @@ class SimulationEngine:
                 "radius": water.radius
             })
 
+        for shelter in self.world.shelters:
+            data.append({
+                "type": "shelter",
+                "x": shelter.x,
+                "y": shelter.y,
+                "radius": shelter.radius
+            })
+
         for herbivore in self.world.herbivores:
             data.append({
                 "type": "herbivore",
@@ -597,6 +660,7 @@ class SimulationEngine:
                 "thirst" : fox.thirst
 
             })
+        
 
         return {
             "tick": self.current_tick,
@@ -608,7 +672,8 @@ class SimulationEngine:
                 "herbivores": len(self.world.herbivores),
                 "berry_bushes" : len(self.world.berry_bushes),
                 "foxes" : len(self.world.foxes),
-                "water_sources": len(self.world.water_sources)
+                "water_sources": len(self.world.water_sources),
+                "shelters" : len(self.world.shelters)
 
     }       
 }
