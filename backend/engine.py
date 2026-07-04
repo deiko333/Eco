@@ -54,6 +54,12 @@ class Herbivore(Organism):
         self.wander_dx = random.uniform(-1, 1)
         self.wander_dy = random.uniform(-1, 1)
         self.nearest_fox_distance = float("inf")
+        self.memory_x = None
+        self.memory_y = None
+        self.memory_timer = 0
+        self.water_memory_x = None
+        self.water_memory_y = None
+        self.water_memory_timer = 0
 
 
     def find_food(self):
@@ -68,6 +74,12 @@ class Fox(Organism):
         self.hunger = hunger
         self.wander_dx = random.uniform(-1, 1)
         self.wander_dy = random.uniform(-1, 1)
+        self.memory_x = None
+        self.memory_y = None
+        self.memory_timer = 0
+        self.water_memory_x = None
+        self.water_memory_y = None
+        self.water_memory_timer = 0
 
     def find_prey(self):
         pass
@@ -229,11 +241,21 @@ class SimulationEngine:
             elif herbivore.thirst > 200:
                 nearest_water = None
                 nearest_water_dist = float("inf")
-                for water in self.world.water_sources:
-                    d = ((herbivore.x - water.x)**2 + (herbivore.y - water.y)**2) ** 0.5
-                    if d < nearest_water_dist:
-                        nearest_water_dist = d
-                        nearest_water = water
+
+                if herbivore.water_memory_x is not None and herbivore.water_memory_timer > 0:
+                    herbivore.water_memory_timer -= 1
+                    dx = herbivore.water_memory_x - herbivore.x
+                    dy = herbivore.water_memory_y - herbivore.y
+                    dist = (dx*dx + dy*dy) ** 0.5
+                    if dist > 0:
+                        herbivore.x += (dx / dist) * herbivore.speed
+                        herbivore.y += (dy / dist) * herbivore.speed
+                else:
+                    for water in self.world.water_sources:
+                        d = ((herbivore.x - water.x)**2 + (herbivore.y - water.y)**2) ** 0.5
+                        if d < nearest_water_dist:
+                            nearest_water_dist = d
+                            nearest_water = water
                 if nearest_water:
                     dx = nearest_water.x - herbivore.x
                     dy = nearest_water.y - herbivore.y
@@ -242,8 +264,14 @@ class SimulationEngine:
                         herbivore.x += (dx / dist) * herbivore.speed
                         herbivore.y += (dy / dist) * herbivore.speed
                     if nearest_water_dist < nearest_water.radius:
-                        herbivore.thirst = 0
-                        herbivore.energy += 10
+                        herbivore.x = nearest_water.x + (herbivore.x - nearest_water.x) * 0.5
+                        herbivore.y = nearest_water.y + (herbivore.y - nearest_water.y) * 0.5
+                        herbivore.thirst = max(0, herbivore.thirst - 20)
+                        if herbivore.thirst == 0:
+                            herbivore.energy += 10
+                            herbivore.water_memory_x = nearest_water.x
+                            herbivore.water_memory_y = nearest_water.y
+                            herbivore.water_memory_timer = 800
 
             # move toward food if exists
             elif closest_plant:
@@ -256,14 +284,31 @@ class SimulationEngine:
                 if dist > 0:
                     herbivore.x += (dx / dist) * herbivore.speed
                     herbivore.y += (dy / dist) * herbivore.speed
-            # fallback random movement
             else:
-                if random.random() < 0.1:
-                    herbivore.wander_dx = random.uniform(-1, 1)
-                    herbivore.wander_dy = random.uniform(-1, 1)
+                if herbivore.memory_x is not None and herbivore.memory_timer > 0:
+                    herbivore.memory_timer -= 1
+                    dx = herbivore.memory_x - herbivore.x
+                    dy = herbivore.memory_y - herbivore.y
+                    dist = (dx*dx + dy*dy) ** 0.5
+                    if dist > 10:
+                        target_dx = dx / dist
+                        target_dy = dy / dist
+                        herbivore.wander_dx += (target_dx - herbivore.wander_dx) * 0.1
+                        herbivore.wander_dy += (target_dy - herbivore.wander_dy) * 0.1
+                    else:
+                        herbivore.memory_x = None
+                        herbivore.memory_y = None
+                else:
+                    if random.random() < 0.05:
+                        herbivore.wander_dx += random.uniform(-0.3, 0.3)
+                        herbivore.wander_dy += random.uniform(-0.3, 0.3)
+                        total = (herbivore.wander_dx**2 + herbivore.wander_dy**2) ** 0.5
+                        if total > 0:
+                            herbivore.wander_dx /= total
+                            herbivore.wander_dy /= total
                 herbivore.x += herbivore.wander_dx * herbivore.speed
                 herbivore.y += herbivore.wander_dy * herbivore.speed
-
+            
             # bounds
             herbivore.x = max(0, min(herbivore.x, self.world.width))
             herbivore.y = max(0, min(herbivore.y, self.world.height))
@@ -275,6 +320,9 @@ class SimulationEngine:
             # eat plant
             if closest_plant and closest_distance < 25:
                 herbivore.energy += closest_plant.food_value
+                herbivore.memory_x = herbivore.x
+                herbivore.memory_y = herbivore.y
+                herbivore.memory_timer = 500
                 if closest_plant in self.world.plants:
                         try:
                             self.world.plants.remove(closest_plant)
@@ -336,9 +384,27 @@ class SimulationEngine:
                     fox.x += (dx / dist) * fox.speed
                     fox.y += (dy / dist) * fox.speed
             else:
-                if random.random() < 0.15:
-                    fox.wander_dx = random.uniform(-1, 1)
-                    fox.wander_dy = random.uniform(-1, 1)
+                if fox.memory_x is not None and fox.memory_timer > 0:
+                    fox.memory_timer -= 1
+                    dx = fox.memory_x - fox.x
+                    dy = fox.memory_y - fox.y
+                    dist = (dx*dx + dy*dy) ** 0.5
+                    if dist > 10:
+                        target_dx = dx / dist
+                        target_dy = dy / dist
+                        fox.wander_dx += (target_dx - fox.wander_dx) * 0.1
+                        fox.wander_dy += (target_dy - fox.wander_dy) * 0.1
+                    else:
+                        fox.memory_x = None
+                        fox.memory_y = None
+                else:
+                    if random.random() < 0.05:
+                        fox.wander_dx += random.uniform(-0.3, 0.3)
+                        fox.wander_dy += random.uniform(-0.3, 0.3)
+                        total = (fox.wander_dx**2 + fox.wander_dy**2) ** 0.5
+                        if total > 0:
+                            fox.wander_dx /= total
+                            fox.wander_dy /= total
                 fox.x += fox.wander_dx * fox.speed
                 fox.y += fox.wander_dy * fox.speed
 
@@ -347,6 +413,41 @@ class SimulationEngine:
 
             fox.energy -= (0.15 + fox.speed * 0.01)
             fox.hunger += 1
+            fox.thirst += 1
+
+            if fox.thirst > 300:
+                nearest_water = None
+                nearest_water_dist = float("inf")
+
+                if fox.water_memory_x is not None and fox.water_memory_timer > 0:
+                    fox.water_memory_timer -= 1
+                    dx = fox.water_memory_x - fox.x
+                    dy = fox.water_memory_y - fox.y
+                    dist = (dx*dx + dy*dy) ** 0.5
+                    if dist > 0:
+                        fox.x += (dx / dist) * fox.speed
+                        fox.y += (dy / dist) * fox.speed
+                else:
+                    for water in self.world.water_sources:
+                        d = ((fox.x - water.x)**2 + (fox.y - water.y)**2) ** 0.5
+                        if d < nearest_water_dist:
+                            nearest_water_dist = d
+                            nearest_water = water
+                    if nearest_water:
+                        dx = nearest_water.x - fox.x
+                        dy = nearest_water.y - fox.y
+                        dist = (dx*dx + dy*dy) ** 0.5
+                        if dist > 0:
+                            fox.x += (dx / dist) * fox.speed
+                            fox.y += (dy / dist) * fox.speed
+                        if nearest_water_dist < nearest_water.radius:
+                            fox.x = nearest_water.x + (fox.x - nearest_water.x) * 0.5
+                            fox.y = nearest_water.y + (fox.y - nearest_water.y) * 0.5
+                            fox.thirst = max(0, fox.thirst - 20)
+                            if fox.thirst == 0:
+                                fox.water_memory_x = nearest_water.x
+                                fox.water_memory_y = nearest_water.y
+                                fox.water_memory_timer = 800
 
             if fox.hunger > 300:
                 fox.energy -= 5
@@ -355,6 +456,9 @@ class SimulationEngine:
             if closest_prey and closest_distance < 22:
                 fox.energy += 150
                 fox.hunger = 0
+                fox.memory_x = fox.x
+                fox.memory_y = fox.y
+                fox.memory_timer = 500
                 if closest_prey in self.world.herbivores:
                     try:
                         self.world.herbivores.remove(closest_prey)
@@ -489,7 +593,8 @@ class SimulationEngine:
                 "energy" : fox.energy,
                 "hunger" : fox.hunger,
                 "age" : fox.age,
-                "vision": round(fox.vision, 1)
+                "vision": round(fox.vision, 1),
+                "thirst" : fox.thirst
 
             })
 
