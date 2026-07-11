@@ -249,7 +249,10 @@ class SimulationEngine:
                     nearest_fox = fox
 
             if nearest_fox:
-                herbivore.nearest_fox_distance = nearest_fox_distance
+                herbivore.nearet_fox_distance = nearest_fox_distance
+                herbivore.memory_x = None
+                herbivore.memory_y = None
+                herbivore.memory_timer = 0
                 dx = herbivore.x - nearest_fox.x
                 dy = herbivore.y - nearest_fox.y
                 dist = (dx*dx + dy*dy) ** 0.5
@@ -291,7 +294,7 @@ class SimulationEngine:
                             herbivore.water_memory_x = nearest_water.x
                             herbivore.water_memory_y = nearest_water.y
                             herbivore.water_memory_timer = 800
-            elif self.season == "winter":
+            elif self.season == "winter" and herbivore.energy > 100 and not closest_plant:
                 nearest_shelter = None
                 nearest_shelter_dist = float("inf")
                 for shelter in self.world.shelters:
@@ -326,8 +329,8 @@ class SimulationEngine:
                     if dist > 30:
                         target_dx = dx / dist
                         target_dy = dy / dist
-                        herbivore.wander_dx += (target_dx - herbivore.wander_dx) * 0.5
-                        herbivore.wander_dy += (target_dy - herbivore.wander_dy) * 0.5
+                        herbivore.wander_dx += (target_dx - herbivore.wander_dx) * 0.05
+                        herbivore.wander_dy += (target_dy - herbivore.wander_dy) * 0.05
                     else:
                         herbivore.memory_x = None
                         herbivore.memory_y = None
@@ -468,6 +471,7 @@ class SimulationEngine:
                 for s in self.world.shelters
             )
             fox_winter_penalty = (0.01 if in_shelter else 0.02) if self.season == "winter" else 0.01 if self.season == "autumn" else -0.04 if self.season == "spring" else 0
+            fox.energy = min(fox.energy, 400)
             fox.energy -= (0.15 + fox.speed * 0.01 + fox_winter_penalty)
             fox.hunger += 1
             fox.thirst += 1
@@ -547,7 +551,7 @@ class SimulationEngine:
                         fox.y + random.randint(-10, 10),
                         100,
                         0,
-                        100,
+                        150,
                         0,
                         max(1, fox.speed + random.uniform(-0.3, 0.3)),
                         max(20, fox.vision + random.randint(-5, 5))
