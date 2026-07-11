@@ -248,8 +248,8 @@ class SimulationEngine:
                     nearest_fox_distance = dist_to_fox
                     nearest_fox = fox
 
-            if nearest_fox:
-                herbivore.nearet_fox_distance = nearest_fox_distance
+            if nearest_fox and (nearest_fox_distance < 100 or herbivore.thirst < 80):
+                herbivore.nearest_fox_distance = nearest_fox_distance
                 herbivore.memory_x = None
                 herbivore.memory_y = None
                 herbivore.memory_timer = 0
@@ -260,7 +260,7 @@ class SimulationEngine:
                     herbivore.x += (dx / dist) * herbivore.speed * 1.2
                     herbivore.y += (dy / dist) * herbivore.speed * 1.2
 
-            elif herbivore.thirst > 200 and herbivore.energy > 80:
+            elif herbivore.thirst > 150 and herbivore.energy > 80:
                 nearest_water = None
                 nearest_water_dist = float("inf")
 
@@ -289,7 +289,7 @@ class SimulationEngine:
                         herbivore.x = nearest_water.x + (herbivore.x - nearest_water.x) * 0.5
                         herbivore.y = nearest_water.y + (herbivore.y - nearest_water.y) * 0.5
                         herbivore.thirst = max(0, herbivore.thirst - 20)
-                        if herbivore.thirst == 0:
+                        if herbivore.thirst < 80:
                             herbivore.energy += 10
                             herbivore.water_memory_x = nearest_water.x
                             herbivore.water_memory_y = nearest_water.y
@@ -326,11 +326,12 @@ class SimulationEngine:
                     dx = herbivore.memory_x - herbivore.x
                     dy = herbivore.memory_y - herbivore.y
                     dist = (dx*dx + dy*dy) ** 0.5
-                    if dist > 30:
+                    if dist > 60:
                         target_dx = dx / dist
                         target_dy = dy / dist
-                        herbivore.wander_dx += (target_dx - herbivore.wander_dx) * 0.05
-                        herbivore.wander_dy += (target_dy - herbivore.wander_dy) * 0.05
+                        strength = min(0.05, dist / 1000)
+                        herbivore.wander_dx += (target_dx - herbivore.wander_dx) * strength
+                        herbivore.wander_dy += (target_dy - herbivore.wander_dy) * strength
                     else:
                         herbivore.memory_x = None
                         herbivore.memory_y = None
@@ -444,11 +445,12 @@ class SimulationEngine:
                     dx = fox.memory_x - fox.x
                     dy = fox.memory_y - fox.y
                     dist = (dx*dx + dy*dy) ** 0.5
-                    if dist > 30:
+                    if dist > 60:
                         target_dx = dx / dist
                         target_dy = dy / dist
-                        fox.wander_dx += (target_dx - fox.wander_dx) * 0.05
-                        fox.wander_dy += (target_dy - fox.wander_dy) * 0.05
+                        strength = min(0.05, dist / 1000)
+                        fox.wander_dx += (target_dx - fox.wander_dx) * strength
+                        fox.wander_dy += (target_dy - fox.wander_dy) * strength
                     else:
                         fox.memory_x = None
                         fox.memory_y = None
