@@ -261,23 +261,26 @@ class SimulationEngine:
                     herbivore.y += (dy / dist) * herbivore.speed * 1.2
 
             elif herbivore.thirst > 150 and herbivore.energy > 80:
+                # find nearest water — use memory first, else scan
                 nearest_water = None
                 nearest_water_dist = float("inf")
 
-                if herbivore.water_memory_x is not None and herbivore.water_memory_timer > 0:
-                    herbivore.water_memory_timer -= 1
-                    dx = herbivore.water_memory_x - herbivore.x
-                    dy = herbivore.water_memory_y - herbivore.y
-                    dist = (dx*dx + dy*dy) ** 0.5
-                    if dist > 0:
-                        herbivore.x += (dx / dist) * herbivore.speed
-                        herbivore.y += (dy / dist) * herbivore.speed
-                else:
-                    for water in self.world.water_sources:
-                        d = ((herbivore.x - water.x)**2 + (herbivore.y - water.y)**2) ** 0.5
-                        if d < nearest_water_dist:
-                            nearest_water_dist = d
-                            nearest_water = water
+                for water in self.world.water_sources:
+                    d = ((herbivore.x - water.x)**2 + (herbivore.y - water.y)**2) ** 0.5
+                    if d < nearest_water_dist:
+                        nearest_water_dist = d
+                        nearest_water = water
+
+                # if no water found by scan, use memory
+                if nearest_water is None and herbivore.water_memory_x is not None:
+                    class FakeWater:
+                        pass
+                    nearest_water = FakeWater()
+                    nearest_water.x = herbivore.water_memory_x
+                    nearest_water.y = herbivore.water_memory_y
+                    nearest_water.radius = 40
+                    nearest_water_dist = ((herbivore.x - nearest_water.x)**2 + (herbivore.y - nearest_water.y)**2) ** 0.5
+
                 if nearest_water:
                     dx = nearest_water.x - herbivore.x
                     dy = nearest_water.y - herbivore.y
@@ -290,10 +293,10 @@ class SimulationEngine:
                         herbivore.y = nearest_water.y + (herbivore.y - nearest_water.y) * 0.5
                         herbivore.thirst = max(0, herbivore.thirst - 20)
                         if herbivore.thirst < 80:
-                            herbivore.energy += 10
                             herbivore.water_memory_x = nearest_water.x
                             herbivore.water_memory_y = nearest_water.y
                             herbivore.water_memory_timer = 800
+                            herbivore.energy += 10
             elif self.season == "winter" and herbivore.energy > 100 and not closest_plant:
                 nearest_shelter = None
                 nearest_shelter_dist = float("inf")
