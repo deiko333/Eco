@@ -607,6 +607,65 @@ class SimulationEngine:
                                 random.randint(0, self.world.height)
                             )
                         )
+
+    def save_full_state(self):
+        return {
+            "tick": self.current_tick,
+            "season": self.season,
+            "season_tick": self.season_tick,
+            "plants": [{"id": p.id, "x": p.x, "y": p.y, "food_value": p.food_value, "age": p.age} for p in self.world.plants],
+            "berry_bushes": [{"id": b.id, "x": b.x, "y": b.y} for b in self.world.berry_bushes],
+            "water_sources": [{"id": w.id, "x": w.x, "y": w.y, "radius": w.radius} for w in self.world.water_sources],
+            "shelters": [{"id": s.id, "x": s.x, "y": s.y, "radius": s.radius} for s in self.world.shelters],
+            "herbivores": [{"id": h.id, "x": h.x, "y": h.y, "health": h.health, "energy": h.energy, "age": h.age, "speed": h.speed, "vision": h.vision, "thirst": h.thirst, "memory_x": h.memory_x, "memory_y": h.memory_y, "memory_timer": h.memory_timer, "water_memory_x": h.water_memory_x, "water_memory_y": h.water_memory_y, "water_memory_timer": h.water_memory_timer, "reproduce_cooldown": h.reproduce_cooldown, "max_age": h.max_age, "wander_dx": h.wander_dx, "wander_dy": h.wander_dy, "is_drinking": h.is_drinking} for h in self.world.herbivores],
+            "foxes": [{"id": f.id, "x": f.x, "y": f.y, "health": f.health, "energy": f.energy, "age": f.age, "speed": f.speed, "vision": f.vision, "thirst": f.thirst, "hunger": f.hunger, "memory_x": f.memory_x, "memory_y": f.memory_y, "memory_timer": f.memory_timer, "water_memory_x": f.water_memory_x, "water_memory_y": f.water_memory_y, "water_memory_timer": f.water_memory_timer, "reproduce_cooldown": f.reproduce_cooldown, "max_age": f.max_age, "wander_dx": f.wander_dx, "wander_dy": f.wander_dy} for f in self.world.foxes],
+        }
+
+    def load_full_state(self, data):
+        self.current_tick = data["tick"]
+        self.season = data["season"]
+        self.season_tick = data["season_tick"]
+
+        self.world.plants = [Plant(p["id"], p["x"], p["y"], p["food_value"]) for p in data["plants"]]
+        for i, plant in enumerate(self.world.plants):
+            plant.age = data["plants"][i]["age"]
+
+        self.world.berry_bushes = [BerryBush(b["id"], b["x"], b["y"]) for b in data["berry_bushes"]]
+        self.world.water_sources = [WaterSource(w["id"], w["x"], w["y"], w["radius"]) for w in data["water_sources"]]
+        self.world.shelters = [Shelter(s["id"], s["x"], s["y"], s["radius"]) for s in data["shelters"]]
+
+        self.world.herbivores = []
+        for h in data["herbivores"]:
+            herb = Herbivore(h["id"], h["x"], h["y"], h["health"], h["energy"], h["age"], h["speed"], h["vision"])
+            herb.thirst = h["thirst"]
+            herb.memory_x = h["memory_x"]
+            herb.memory_y = h["memory_y"]
+            herb.memory_timer = h["memory_timer"]
+            herb.water_memory_x = h["water_memory_x"]
+            herb.water_memory_y = h["water_memory_y"]
+            herb.water_memory_timer = h["water_memory_timer"]
+            herb.reproduce_cooldown = h["reproduce_cooldown"]
+            herb.max_age = h["max_age"]
+            herb.wander_dx = h["wander_dx"]
+            herb.wander_dy = h["wander_dy"]
+            herb.is_drinking = h["is_drinking"]
+            self.world.herbivores.append(herb)
+
+        self.world.foxes = []
+        for f in data["foxes"]:
+            fox = Fox(f["id"], f["x"], f["y"], f["health"], f["hunger"], f["energy"], f["age"], f["speed"], f["vision"])
+            fox.thirst = f["thirst"]
+            fox.memory_x = f["memory_x"]
+            fox.memory_y = f["memory_y"]
+            fox.memory_timer = f["memory_timer"]
+            fox.water_memory_x = f["water_memory_x"]
+            fox.water_memory_y = f["water_memory_y"]
+            fox.water_memory_timer = f["water_memory_timer"]
+            fox.reproduce_cooldown = f["reproduce_cooldown"]
+            fox.max_age = f["max_age"]
+            fox.wander_dx = f["wander_dx"]
+            fox.wander_dy = f["wander_dy"]
+            self.world.foxes.append(fox)
         
     def get_state(self):
         data = []
