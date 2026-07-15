@@ -125,6 +125,7 @@ class Herbivore(Organism):
             self.memory_x = None
             self.memory_y = None
             self.memory_timer = 0
+            self.is_drinking = False  # Immediately stop drinking if a fox gets close!
             dx = self.x - nearest_fox.x
             dy = self.y - nearest_fox.y
             dist = (dx*dx + dy*dy) ** 0.5
@@ -135,38 +136,13 @@ class Herbivore(Organism):
         # Drinking state machine
         elif self.thirst > 150 and self.energy > 80:
             if self.is_drinking:
-                self.thirst = max(0, self.thirst - 25)
+                self.thirst = max(0, self.thirst - 5)  # Reduced drinking speed to 5 so they stay here for a few seconds
                 if self.thirst < 80:
                     self.is_drinking = False
                     self.water_memory_x = self.drinking_at_x
                     self.water_memory_y = self.drinking_at_y
                     self.water_memory_timer = 800
                     self.energy += 10
-            else:
-                nearest_water = None
-                nearest_water_dist = float("inf")
-                for water in world.water_sources:
-                    d = ((self.x - water.x)**2 + (self.y - water.y)**2) ** 0.5
-                    if d < nearest_water_dist:
-                        nearest_water_dist = d
-                        nearest_water = water
-
-                if nearest_water is None and self.water_memory_x is not None:
-                    nearest_water_dist = ((self.x - self.water_memory_x)**2 + (self.y - self.water_memory_y)**2) ** 0.5
-                    nearest_water = type('W', (), {'x': self.water_memory_x, 'y': self.water_memory_y, 'radius': 40})()
-
-                if nearest_water:
-                    if nearest_water_dist < nearest_water.radius:
-                        self.is_drinking = True
-                        self.drinking_at_x = nearest_water.x
-                        self.drinking_at_y = nearest_water.y
-                    else:
-                        dx = nearest_water.x - self.x
-                        dy = nearest_water.y - self.y
-                        dist = (dx*dx + dy*dy) ** 0.5
-                        if dist > 0:
-                            self.x += (dx / dist) * self.speed
-                            self.y += (dy / dist) * self.speed
 
         elif season == "winter" and self.energy > 100 and not closest_plant:
             nearest_shelter = None
@@ -316,10 +292,15 @@ class Fox(Organism):
                 closest_distance = distance
                 closest_prey = herbivore
 
+        # Interrupt drinking if hungry and a nearby herbivore is seen
+        is_hunting_instead = closest_prey is not None and self.hunger > 100
+        if is_hunting_instead:
+            self.is_drinking = False  # Drop the water and hunt!
+
         # Drinking State Machine
-        if self.thirst > 300 and self.energy > 100:
+        if self.thirst > 300 and self.energy > 100 and not is_hunting_instead:
             if self.is_drinking:
-                self.thirst = max(0, self.thirst - 25)
+                self.thirst = max(0, self.thirst - 5)  # Reduced drinking speed to 5 so they stay here for a few seconds
                 if self.thirst < 80:
                     self.is_drinking = False
                     self.water_memory_x = self.drinking_at_x
