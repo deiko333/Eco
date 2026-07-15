@@ -134,7 +134,7 @@ class Herbivore(Organism):
                 self.y += (dy / dist) * self.speed * 1.2
 
         # Drinking state machine
-        elif self.thirst > 150 and self.energy > 80:
+        elif (self.thirst > 150 or self.is_drinking) and self.energy > 80:
             if self.is_drinking:
                 self.thirst = max(0, self.thirst - 5)  # Reduced drinking speed to 5 so they stay here for a few seconds
                 if self.thirst < 80:
@@ -298,7 +298,7 @@ class Fox(Organism):
             self.is_drinking = False  # Drop the water and hunt!
 
         # Drinking State Machine
-        if self.thirst > 300 and self.energy > 100 and not is_hunting_instead:
+        if (self.thirst > 300 or self.is_drinking) and self.energy > 100 and not is_hunting_instead:
             if self.is_drinking:
                 self.thirst = max(0, self.thirst - 5)  # Reduced drinking speed to 5 so they stay here for a few seconds
                 if self.thirst < 80:
