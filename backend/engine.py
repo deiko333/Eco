@@ -269,7 +269,7 @@ class Herbivore(Organism):
 
         # death
         self.age += 1
-        if self.energy <= 0 or self.age >= self.max_age:
+        if self.energy <= 0 or self.age >= self.max_age or self.health <= 0:
             try:
                 world.herbivores.remove(self)
             except ValueError:
@@ -466,7 +466,7 @@ class Fox(Organism):
             )
 
         self.age += 1
-        if self.energy <= 0 or self.age >= self.max_age:
+        if self.energy <= 0 or self.age >= self.max_age or self.health <= 0:
             try:
                 world.foxes.remove(self)
             except ValueError:
@@ -881,6 +881,73 @@ class SimulationEngine:
             fox.drinking_at_y = f.get("drinking_at_y", None)
 
             self.world.foxes.append(fox)
+
+    def trigger_disaster(self, disaster_type, x, y):
+        """
+        Triggers a player-selected disaster at the (x, y) coordinates where they clicked.
+        """
+        # === 1. WILDFIRE ===
+        if disaster_type == "wildfire":
+            burn_radius = 150
+            
+            # Remove all plants, bushes, and trees close to the click coordinates
+            self.world.plants = [
+                p for p in self.world.plants 
+                if ((p.x - x)**2 + (p.y - y)**2)**0.5 > burn_radius
+            ]
+            self.world.berry_bushes = [
+                b for b in self.world.berry_bushes 
+                if ((b.x - x)**2 + (b.y - y)**2)**0.5 > burn_radius
+            ]
+            self.world.trees = [
+                t for t in self.world.trees 
+                if ((t.x - x)**2 + (t.y - y)**2)**0.5 > burn_radius
+            ]
+            
+            # Hurt and scare any animals caught in the fire radius
+            for animal in self.world.herbivores + self.world.foxes:
+                dist = ((animal.x - x)**2 + (animal.y - y)**2)**0.5
+                if dist <= burn_radius:
+                    animal.health -= 50  # Take burn damage
+                    animal.energy -= 40  # Lose energy frantically running away
+                    animal.is_drinking = False
+
+        # === 2. DROUGHT ===
+        elif disaster_type == "drought":
+            # Shrink EVERY water source on the map by 15 units.
+            # (Note: x and y don't matter here because a drought affects the whole world!)
+            active_sources = []
+            for water in self.world.water_sources:
+                water.radius -= 15
+                # Only keep water sources if they still have a radius of 10 or more
+                if water.radius >= 10:
+                    active_sources.append(water)
+            self.world.water_sources = active_sources
+
+        # === 3. PLAGUE ===
+        elif disaster_type == "plague":
+            plague_radius = 150
+            spread_radius = 80
+            infected_animals = []
+
+            # Step 1: Infect all animals standing inside the clicked area
+            for animal in self.world.herbivores + self.world.foxes:
+                dist = ((animal.x - x)**2 + (animal.y - y)**2)**0.5
+                if dist <= plague_radius:
+                    animal.health -= 40  # Lose health from infection
+                    infected_animals.append(animal)
+
+            # Step 2: Sickness spread! Any healthy animal standing too close to a sick one gets infected too
+            for animal in self.world.herbivores + self.world.foxes:
+                if animal in infected_animals:
+                    continue  # Skip if they are already sick
+                
+                # Check if this healthy animal is close to any sick animal
+                for sick_animal in infected_animals:
+                    dist = ((animal.x - sick_animal.x)**2 + (animal.y - sick_animal.y)**2)**0.5
+                    if dist <= spread_radius:
+                        animal.health -= 20  # Catch the sickness
+                        break  # Stop checking other sick animals once they catch it
         
     def get_state(self):
         data = []
