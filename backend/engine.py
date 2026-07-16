@@ -1010,7 +1010,7 @@ class SimulationEngine:
                 "x": plant.x,
                 "y": plant.y,
                 "age": plant.age,
-                "food_value": round(plant.food_value,1)
+                "food_value": round(plant.food_value, 1)
             })
         
         for bush in self.world.berry_bushes:
@@ -1029,10 +1029,7 @@ class SimulationEngine:
                 "radius": tree.radius,
                 "age": tree.age,
                 "height": tree.height
-
-            }
-
-            )
+            })
 
         for water in self.world.water_sources:
             data.append({
@@ -1055,14 +1052,13 @@ class SimulationEngine:
                 "type": "herbivore",
                 "x": herbivore.x,
                 "y": herbivore.y,
+                "health": herbivore.health, # 🟢 ჩაემატა ჯანმრთელობა ფრონტენდისთვის
                 "energy": herbivore.energy,
                 "speed": round(herbivore.speed, 2),
                 "vision": round(herbivore.vision, 1),
                 "age": herbivore.age,
                 "nearest_fox_dist": round(herbivore.nearest_fox_distance, 1),
                 "thirst": herbivore.thirst
-
-
             })
 
         for fox in self.world.foxes:
@@ -1070,12 +1066,12 @@ class SimulationEngine:
                 "type" : "fox",
                 "x" : fox.x,
                 "y" : fox.y,
+                "health": fox.health, # 🟢 ჩაემატა ჯანმრთელობა ფრონტენდისთვის
                 "energy" : fox.energy,
                 "hunger" : fox.hunger,
                 "age" : fox.age,
                 "vision": round(fox.vision, 1),
                 "thirst" : fox.thirst
-
             })
         
 
@@ -1092,6 +1088,5 @@ class SimulationEngine:
                 "water_sources": len(self.world.water_sources),
                 "shelters" : len(self.world.shelters),
                 "trees": len(self.world.trees)
-
-    }       
-}
+            }       
+        }
