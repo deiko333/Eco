@@ -683,7 +683,7 @@ class SimulationEngine:
         self.world.plants.append(
         Plant(
             random.randint(100000, 999999),
-            x, y, 20
+            x, y, Plant.START_FOOD_VALUE
         )
     )
 
