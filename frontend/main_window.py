@@ -10,6 +10,7 @@ from frontend.simulation_page import SimulationPage
 from frontend.history_page import HistoryPage
 from frontend.settings_page import SettingsPage
 from frontend.dialogs import confirm, confirm_discard, show_error, show_info, ask_text
+from frontend.sound_manager import SoundManager
 
 from services.database import DatabaseManager
 from services.save_manager import SaveManager
@@ -25,6 +26,7 @@ class MainWindow(QMainWindow):
         self.save_manager = SaveManager(self.db)
         self.theme = Theme("light")
         self.assets = AssetManager(self.theme)
+        self.sounds = SoundManager(enabled=True)
 
         self.current_user = None
         self.active_save_id = None
@@ -42,6 +44,7 @@ class MainWindow(QMainWindow):
         self.start_page = StartPage(self.theme, self.assets)
         self.setup_page = SetupPage(self.theme)
         self.simulation_page = SimulationPage(self.theme, self.assets)
+        self.simulation_page.sounds = self.sounds
         self.history_page = HistoryPage(self.theme, self.db, self.save_manager)
         self.settings_page = SettingsPage(self.theme, self.db)
 
@@ -72,10 +75,10 @@ class MainWindow(QMainWindow):
         self.settings_page.back_requested.connect(lambda: self.stack.setCurrentWidget(self.start_page))
         self.settings_page.settings_changed.connect(self._settings_changed)
 
-
     def _profile_selected(self, user):
         self.current_user = user
         self.settings_page.set_user(user)
+        self.sounds.enabled = self.settings_page.settings.get("sound_enabled", True)
         self.start_page.set_continue_enabled(self.db.has_any_save(user["id"]))
         self.stack.setCurrentWidget(self.start_page)
 
@@ -92,6 +95,7 @@ class MainWindow(QMainWindow):
             self.theme.toggle()
             self.assets.invalidate()
             self._apply_theme()
+        self.sounds.enabled = settings["sound_enabled"]
         self.simulation_page.scene.show_vision = settings["show_vision_ranges"]
         self.simulation_page.scene.show_labels = settings["show_entity_labels"]
         self.simulation_page.scene.show_particles = settings["show_weather_particles"]
@@ -105,7 +109,6 @@ class MainWindow(QMainWindow):
     def _apply_theme(self):
         self.setStyleSheet(self.theme.app_stylesheet())
         self.start_page.refresh_theme()
-
 
     def _start_new_simulation(self, config):
         errors = self.save_manager.validate_counts(config["counts"])

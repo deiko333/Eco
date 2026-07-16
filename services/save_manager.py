@@ -2,7 +2,7 @@ import csv
 import json
 import random
 
-from backend.engine import SimulationEngine, Plant, BerryBush, Herbivore, Fox, WaterSource, Shelter
+from backend.engine import SimulationEngine, Plant, BerryBush, Herbivore, Fox, WaterSource, Shelter, Tree
 
 PRESETS = {
     "Balanced Forest": dict(plants=150, berry_bushes=15, herbivores=10, foxes=4, water_sources=5, shelters=4),
@@ -21,7 +21,6 @@ SAFE_LIMITS = {
 class SaveManager:
     def __init__(self, database):
         self.db = database
-
 
     def validate_counts(self, counts):
         errors = []
@@ -56,7 +55,6 @@ class SaveManager:
         engine.season_tick = 0
         engine.pause()
         return engine
-
 
     def save(self, user_id, save_name, engine):
         return self.db.save_full_state(user_id, save_name, engine.save_full_state())

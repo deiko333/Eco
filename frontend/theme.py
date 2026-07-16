@@ -55,6 +55,16 @@ def dark_palette():
         accent_pressed="#2E6B45",
     )
 
+def apply_soft_shadow(widget, blur=20, y_offset=5, alpha=45):
+    from PyQt5.QtGui import QColor
+    from PyQt5.QtWidgets import QGraphicsDropShadowEffect
+
+    shadow = QGraphicsDropShadowEffect(widget)
+    shadow.setBlurRadius(blur)
+    shadow.setOffset(0, y_offset)
+    shadow.setColor(QColor(20, 40, 29, alpha))
+
+    widget.setGraphicsEffect(shadow)
 
 class Theme:
     def __init__(self, mode="light"):

@@ -1,6 +1,8 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGridLayout, QFrame
 
+from frontend.theme import apply_soft_shadow
+
 
 def ecosystem_status(stats):
     if stats["herbivores"] == 0:
@@ -34,6 +36,7 @@ class StatCard(QFrame):
         super().__init__()
         self.theme = theme
         self.setStyleSheet(theme.card_style())
+        apply_soft_shadow(self, blur=16, y_offset=3, alpha=35)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(10)
@@ -64,6 +67,7 @@ class StatusBanner(QFrame):
     def __init__(self, theme):
         super().__init__()
         self.theme = theme
+        apply_soft_shadow(self, blur=22, y_offset=4, alpha=50)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 10, 14, 10)
         self.status_label = QLabel("Balanced")
@@ -86,7 +90,7 @@ class StatusBanner(QFrame):
             "Predator Extinction": c.warning,
             "Critical Ecosystem": c.danger,
         }.get(status, c.forest)
-        self.setStyleSheet(f"background-color: {color}; border-radius: 12px;")
+        self.setStyleSheet(f"background-color: {color}; border-radius: 18px;")
         self.status_label.setText(status)
         self.detail_label.setText(STATUS_MESSAGES.get(status, ""))
 
@@ -96,6 +100,7 @@ class SelectionDetailCard(QFrame):
         super().__init__()
         self.theme = theme
         self.setStyleSheet(theme.card_style())
+        apply_soft_shadow(self, blur=18, y_offset=4, alpha=35)
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(14, 12, 14, 12)
         self.title_label = QLabel("No selection")
@@ -158,4 +163,6 @@ class SelectionDetailCard(QFrame):
             return [("Radius", e.get("radius", 0))]
         if t == "shelter":
             return [("Radius", e.get("radius", 0))]
+        if t == "tree":
+            return [("Age", e.get("age", 0)), ("Height", e.get("height", 0))]
         return []

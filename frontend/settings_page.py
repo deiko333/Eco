@@ -13,7 +13,7 @@ DEFAULT_SETTINGS = {
     "show_weather_particles": True,
     "graph_update_frequency": 5,
     "autosave_interval_ticks": 200,
-    "sound_enabled": False,
+    "sound_enabled": True,
     "fullscreen": False,
 }
 
@@ -82,7 +82,7 @@ class SettingsPage(QWidget):
         grid.addWidget(self.autosave_spin, row, 1)
         row += 1
 
-        self.sound_checkbox = QCheckBox("Sound enabled (placeholder -- no audio assets included)")
+        self.sound_checkbox = QCheckBox("Sound effects (soft clicks & chimes)")
         grid.addWidget(self.sound_checkbox, row, 0, 1, 2)
         row += 1
 

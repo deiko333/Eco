@@ -2,7 +2,7 @@ from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSplitter,
     QGroupBox, QCheckBox, QSlider, QScrollArea, QTextBrowser, QSizePolicy,
-    QGridLayout, QProgressBar
+    QGridLayout, QProgressBar, QComboBox
 )
 from frontend.ecosystem_scene import EcosystemScene, EcosystemView
 from frontend.statistics_panel import StatCard, StatusBanner, SelectionDetailCard, ecosystem_status
@@ -24,10 +24,17 @@ class SimulationPage(QWidget):
         self.assets = assets
         self.engine = None
         self.save_name = "Untitled Simulation"
+        self.sounds = None
         self.snapshot_callback = None
-        self.graph_callback = None 
+        self.graph_callback = None
         self.last_season = "summer"
         self.last_fox_count = 0
+        self.effect_timer = QTimer()
+        self.effect_timer.setInterval(80)
+        self.effect_timer.timeout.connect(
+            self._advance_effects
+        )
+        self.effect_timer.start()
 
         self.timer = QTimer()
         self.timer.timeout.connect(self._tick)
@@ -88,7 +95,7 @@ class SimulationPage(QWidget):
         self.start_button.clicked.connect(self.start)
         self.pause_button.clicked.connect(self.pause)
         self.reset_button.clicked.connect(self._reset_clicked)
-        self.save_button.clicked.connect(self.save_requested.emit)
+        self.save_button.clicked.connect(self._save_clicked)
         self.back_button.clicked.connect(self._back_clicked)
 
         return bar
@@ -96,6 +103,11 @@ class SimulationPage(QWidget):
     def _icon_button(self, icon_name, tooltip):
         pixmap = self.assets.get_pixmap("icons", icon_name, size=20)
         return IconButton(pixmap, tooltip)
+
+    def _save_clicked(self):
+        if self.sounds:
+            self.sounds.play_click()
+        self.save_requested.emit()
 
     def _build_sidebar(self):
         scroll = QScrollArea()
@@ -139,6 +151,67 @@ class SimulationPage(QWidget):
             vis_layout.addWidget(cb)
         layout.addWidget(vis_box)
 
+        disaster_box = QGroupBox("Disasters")
+        disaster_layout = QVBoxLayout(disaster_box)
+        self.disaster_combo = QComboBox()
+        self.disaster_combo.addItems(["Wildfire", "Drought", "Plague"])
+        self.disaster_combo.currentTextChanged.connect(self._update_disaster_hint)
+        self.disaster_hint_label = QLabel()
+        self.disaster_hint_label.setWordWrap(True)
+        self.disaster_hint_label.setStyleSheet(f"color: {self.theme.colors.muted}; font-size: 11px;")
+        self.disaster_button = QPushButton("Trigger Disaster")
+        self.disaster_button.setObjectName("dangerButton")
+        self.disaster_button.clicked.connect(self._disaster_button_clicked)
+        disaster_layout.addWidget(self.disaster_combo)
+        disaster_layout.addWidget(self.disaster_hint_label)
+        disaster_layout.addWidget(self.disaster_button)
+        layout.addWidget(disaster_box)
+        self._update_disaster_hint(self.disaster_combo.currentText())
+        editor_box = QGroupBox("Map Editor")
+        editor_layout = QVBoxLayout(editor_box)
+        self.placement_combo = QComboBox()
+        self.placement_combo.addItem("Plant","plant")
+        self.placement_combo.addItem("Berry Bush", "berry_bush")
+        self.placement_combo.addItem("Tree", "tree")
+        self.placement_combo.addItem("Water Source", "water")
+        self.placement_combo.addItem("Shelter", "shelter")
+        self.placement_combo.addItem("Herbivore", "herbivore")
+        self.placement_combo.addItem("Fox", "fox")
+
+        self.placement_hint_label = QLabel("Select an entity, then click Place on Map.")
+        self.placement_hint_label.setWordWrap(True)
+        self.placement_hint_label.setStyleSheet(
+            f"""
+            color: {self.theme.colors.muted};
+            font-size: 11px;
+            """
+        )
+
+        self.placement_button = QPushButton("Place on Map")
+        self.cancel_interaction_button = QPushButton("Cancel Map Tool")
+
+        self.placement_button.clicked.connect(
+            self._placement_button_clicked
+        )
+        self.cancel_interaction_button.clicked.connect(
+            self._cancel_map_interaction
+        )
+
+        editor_layout.addWidget(
+            self.placement_combo
+        )
+        editor_layout.addWidget(
+            self.placement_hint_label
+        )
+        editor_layout.addWidget(
+            self.placement_button
+        )
+        editor_layout.addWidget(
+            self.cancel_interaction_button
+        )
+
+        layout.addWidget(editor_box)
+
         layout.addStretch()
         scroll.setWidget(content)
         scroll.setMinimumWidth(230)
@@ -152,6 +225,9 @@ class SimulationPage(QWidget):
         self.scene = EcosystemScene(self.assets)
         self.view = EcosystemView(self.scene)
         self.view.entity_selected.connect(self._entity_selected)
+        self.view.map_clicked_for_disaster.connect(self._map_clicked_for_disaster)
+        self.view.map_clicked_for_placement.connect(self._map_clicked_for_placement)
+        self.view.interaction_cancelled.connect(self._interaction_cancelled)
         layout.addWidget(self.view)
         return wrapper
 
@@ -170,7 +246,7 @@ class SimulationPage(QWidget):
         cards_grid.setSpacing(8)
         self.cards = {}
         card_defs = [
-            ("plants", "Plants"), ("berry_bushes", "Berry Bushes"),
+            ("plants", "Plants"), ("berry_bushes", "Berry Bushes"), ("trees", "Trees"),
             ("herbivores", "Herbivores"), ("foxes", "Foxes"),
             ("water_sources", "Water Sources"), ("shelters", "Shelters"),
             ("avg_herbivore_energy", "Avg Herb. Energy"), ("avg_herbivore_thirst", "Avg Herb. Thirst"),
@@ -224,13 +300,17 @@ class SimulationPage(QWidget):
         self._refresh()
 
     def start(self):
+        if self.sounds:
+            self.sounds.play_click()
         if not self.engine:
             return
         self.engine.start()
         self.timer.start()
         self._log("Simulation started.")
 
-    def pause(self):
+    def pause(self, silent=False):
+        if self.sounds and not silent:
+            self.sounds.play_click()
         if not self.engine:
             return
         self.engine.pause()
@@ -241,12 +321,16 @@ class SimulationPage(QWidget):
         return self.engine is not None and self.engine.current_tick > 0
 
     def _reset_clicked(self):
+        if self.sounds:
+            self.sounds.play_click()
         if confirm(self, self.theme, "Reset Simulation",
                    "Reset this simulation back to its starting configuration? Unsaved progress will be lost."):
             self.pause()
             self.reset_requested.emit()
 
     def _back_clicked(self):
+        if self.sounds:
+            self.sounds.play_click()
         self.pause()
         self.back_to_menu_requested.emit()
 
@@ -263,6 +347,163 @@ class SimulationPage(QWidget):
     def _entity_selected(self, entity):
         self.detail_card.show_entity(entity)
 
+    def _update_disaster_hint(self, disaster_name):
+        if disaster_name == "Drought":
+            self.disaster_hint_label.setText("Shrinks every water source on the map. No click needed.")
+        else:
+            self.disaster_hint_label.setText(f"Click the map after triggering to strike a {disaster_name.lower()} there.")
+
+    def _disaster_button_clicked(self):
+        if not self.engine:
+            return
+        label = self.disaster_combo.currentText()
+        disaster_type = label.lower()
+
+        if disaster_type == "drought":
+            if confirm(self, self.theme, "Trigger Drought",
+                       "This will shrink every water source on the map. Continue?", danger=True):
+                self.engine.trigger_disaster("drought", 0,0)
+                self._log("A drought struck, shrinking every water source.")
+                self.scene.add_disaster_effect(
+                    "drought",
+                    duration=100,
+                )
+
+                if self.sounds:
+                    self.sounds.play_drought()
+
+                self._refresh()
+            return
+
+        if confirm(self, self.theme, f"Trigger {label}",
+                   f"Click anywhere on the map to strike a {disaster_type} there. Continue?", danger=True):
+            self.view.disaster_mode = disaster_type
+            self.view.setCursor(Qt.CrossCursor)
+            self.disaster_hint_label.setText(f"Click the map now to strike a {disaster_type}...")
+
+    def _map_clicked_for_disaster(self, x, y):
+        if not self.engine or not self.view.disaster_mode:
+            return
+        disaster_type = self.view.disaster_mode
+        self.engine.trigger_disaster(disaster_type, x, y)
+        self._log(
+            f"A {disaster_type} struck near "
+            f"({int(x)}, {int(y)})."
+        )
+        self.scene.add_disaster_effect(
+            disaster_type,
+            x,
+            y,
+            duration=110,
+        )
+        if self.sounds:
+            if disaster_type == "wildfire":
+                self.sounds.play_fire()
+            elif disaster_type == "plague":
+                self.sounds.play_plague()
+            else:
+                self.sounds.play_alert()
+        self.view.disaster_mode = None
+        self.view.setCursor(Qt.ArrowCursor)
+        self._update_disaster_hint(self.disaster_combo.currentText())
+        self._refresh()
+
+    def _placement_button_clicked(self):
+        if not self.engine:
+            return
+        self.view.disaster_mode = None
+        self.view.placement_mode = (
+            self.placement_combo.currentData()
+        )
+        self.view.setCursor(Qt.CrossCursor)
+        selected_label = (
+            self.placement_combo.currentText()
+        )
+        self.placement_hint_label.setText(
+            f"Placement active: click the map to add "
+            f"{selected_label}. "
+            f"Right-click or press Escape to cancel."
+        )
+        if self.sounds:
+            self.sounds.play_click()
+    def _map_clicked_for_placement(self, x, y):
+        if (
+            not self.engine
+            or not self.view.placement_mode
+        ):
+            return
+
+        x = max(
+            0,
+            min(
+                float(x),
+                self.engine.world.width,
+            ),
+        )
+        y = max(
+            0,
+            min(
+                float(y),
+                self.engine.world.height,
+            ),
+        )
+
+        placement_mode = self.view.placement_mode
+
+        placement_methods = {
+            "plant": self.engine.add_plant,
+            "berry_bush": self.engine.add_berry_bush,
+            "tree": self.engine.add_tree,
+            "water": self.engine.add_water_source,
+            "shelter": self.engine.add_shelter,
+            "herbivore": self.engine.add_herbivore,
+            "fox": self.engine.add_fox,
+        }
+
+        add_method = placement_methods.get(
+            placement_mode
+        )
+
+        if add_method is None:
+            self._cancel_map_interaction()
+            return
+
+        new_entity_id = add_method(x, y)
+
+        readable_name = placement_mode.replace(
+            "_",
+            " ",
+        )
+
+        self._log(
+            f"Added {readable_name} "
+            f"#{new_entity_id} at "
+            f"({int(x)}, {int(y)})."
+        )
+
+        if self.sounds:
+            self.sounds.play_place()
+
+        self._refresh()
+
+
+    def _cancel_map_interaction(self):
+        self.view.cancel_interaction()
+
+
+    def _interaction_cancelled(self):
+        self._update_disaster_hint(
+            self.disaster_combo.currentText()
+        )
+
+        self.placement_hint_label.setText(
+            "Select an entity, then click Place on Map."
+        )
+
+
+    def _advance_effects(self):
+        if hasattr(self, "scene"):
+            self.scene.advance_effects()
 
     def _tick(self):
         if not self.engine:
@@ -312,6 +553,7 @@ class SimulationPage(QWidget):
             "plants": counts["plants"], "berry_bushes": counts["berry_bushes"],
             "water_sources": counts["water_sources"], "shelters": counts["shelters"],
             "herbivores": counts["herbivores"], "foxes": counts["foxes"],
+            "trees": counts.get("trees", 0),
             "avg_herbivore_energy": avg(herbivores, "energy"), "avg_herbivore_thirst": avg(herbivores, "thirst"),
             "avg_fox_energy": avg(foxes, "energy"), "avg_fox_hunger": avg(foxes, "hunger"),
             "avg_fox_thirst": avg(foxes, "thirst"), "avg_speed": avg(herbivores, "speed"),
@@ -326,7 +568,7 @@ class SimulationPage(QWidget):
         self.season_progress.setValue(stats["season_tick"])
         self.season_ticks_label.setText(f"{1000 - stats['season_tick']} ticks until next season")
 
-        for key in ("plants", "berry_bushes", "herbivores", "foxes", "water_sources", "shelters"):
+        for key in ("plants", "berry_bushes", "trees", "herbivores", "foxes", "water_sources", "shelters"):
             self.cards[key].set_value(stats[key])
         c = self.theme.colors
         self.cards["avg_herbivore_energy"].set_value(f"{stats['avg_herbivore_energy']:.0f}")
@@ -343,12 +585,16 @@ class SimulationPage(QWidget):
         if stats["season"] != self.last_season:
             self._log(f"Season changed: {self.last_season} to {stats['season']}.")
             self.last_season = stats["season"]
+            if self.sounds:
+                self.sounds.play_chime()
         if old_fox_count == 0 and stats["foxes"] > 0:
             self._log(f"Foxes returned to the ecosystem (+{stats['foxes']}).")
         self.last_fox_count = stats["foxes"]
         if self.engine.running and stats["herbivores"] == 0:
-            self.pause()
+            self.pause(silent=True)
             self._log("All herbivores have died. Simulation paused.")
+            if self.sounds:
+                self.sounds.play_alert()
             show_info(self, self.theme, "Simulation Ended", "All herbivores died out. Foxes have no food source left.")
 
     def _log(self, text):

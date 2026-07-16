@@ -8,7 +8,7 @@ from frontend.dialogs import confirm, show_info, show_error, ask_text
 
 
 class HistoryPage(QWidget):
-    load_requested = pyqtSignal(int)
+    load_requested = pyqtSignal(int)  # save_id
     back_requested = pyqtSignal()
 
     def __init__(self, theme, database, save_manager):

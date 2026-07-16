@@ -6,40 +6,6 @@ from PyQt5.QtSvg import QSvgRenderer
 
 ASSETS_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
 
-ASSET_FILENAMES = {
-    "logo/ecobalance_logo.svg": "512x512",
-    "backgrounds/forest_spring.png": "1600x1000",
-    "backgrounds/forest_summer.png": "1600x1000",
-    "backgrounds/forest_autumn.png": "1600x1000",
-    "backgrounds/forest_winter.png": "1600x1000",
-    "animals/herbivore_healthy.svg": "64x64",
-    "animals/herbivore_tired.svg": "64x64",
-    "animals/herbivore_thirsty.svg": "64x64",
-    "animals/herbivore_critical.svg": "64x64",
-    "animals/herbivore_fleeing.svg": "64x64",
-    "animals/herbivore_drinking.svg": "64x64",
-    "animals/fox_healthy.svg": "64x64",
-    "animals/fox_hungry.svg": "64x64",
-    "animals/fox_thirsty.svg": "64x64",
-    "animals/fox_critical.svg": "64x64",
-    "animals/fox_hunting.svg": "64x64",
-    "plants/plant_small.svg": "32x32",
-    "plants/plant_medium.svg": "32x32",
-    "plants/plant_mature.svg": "32x32",
-    "plants/berry_bush.svg": "40x40",
-    "environment/water_source.svg": "96x96",
-    "environment/shelter.svg": "96x96",
-    "icons/play.svg": "24x24",
-    "icons/pause.svg": "24x24",
-    "icons/reset.svg": "24x24",
-    "icons/save.svg": "24x24",
-    "icons/settings.svg": "24x24",
-    "icons/history.svg": "24x24",
-    "icons/back.svg": "24x24",
-    "icons/visibility.svg": "24x24",
-}
-
-
 class AssetManager:
     def __init__(self, theme):
         self.theme = theme
@@ -50,6 +16,7 @@ class AssetManager:
 
     def status_ring_color(self, state):
         return self._state_color(state, self.theme.colors)
+
 
     def get_pixmap(self, category, name, size=64, state=None):
         key = (category, name, state, size, self.theme.mode)
@@ -83,6 +50,7 @@ class AssetManager:
         self._cache[key] = pixmap
         return pixmap
 
+
     def _draw_fallback(self, category, name, state, size):
         pixmap = QPixmap(size, size)
         pixmap.fill(Qt.transparent)
@@ -98,6 +66,7 @@ class AssetManager:
             "berry_bush": self._draw_berry_bush,
             "water": self._draw_water,
             "shelter": self._draw_shelter,
+            "tree": self._draw_tree,
         }
         icon_drawers = {
             "play": self._icon_play,
@@ -136,10 +105,17 @@ class AssetManager:
             "hungry": QColor(c.warning),
             "hunting": QColor(c.danger),
             "old": QColor(c.muted),
+            "sick": QColor("#7B4F9E"),
         }.get(state, QColor(c.forest))
 
+    #animals
     def _draw_herbivore(self, p, rect, state, c):
-        body_color = QColor("#E9CBA3") if state not in ("critical", "fleeing") else QColor("#D8B389")
+        if state == "sick":
+            body_color = QColor("#B8A6C9")
+        elif state in ("critical", "fleeing"):
+            body_color = QColor("#D8B389")
+        else:
+            body_color = QColor("#E9CBA3")
         ear_inner = QColor("#F6E4CC")
         accent = self._state_color(state, c)
         cx, cy = rect.center().x(), rect.center().y()
@@ -150,7 +126,6 @@ class AssetManager:
         p.drawEllipse(QPointF(cx - r * 0.32, cy + r * 0.98), r * 0.24, r * 0.16)
         p.drawEllipse(QPointF(cx + r * 0.32, cy + r * 0.98), r * 0.24, r * 0.16)
 
-  
         p.setBrush(QBrush(body_color))
         p.drawEllipse(QPointF(cx, cy + r * 0.62), r * 0.72, r * 0.55)
 
@@ -164,11 +139,9 @@ class AssetManager:
             p.drawRoundedRect(QRectF(-r * 0.09, -r * 0.48, r * 0.18, r * 0.46), r * 0.09, r * 0.09)
             p.restore()
 
-
         p.setBrush(QBrush(body_color))
         p.drawEllipse(QPointF(cx, cy - r * 0.18), r * 0.82, r * 0.78)
 
- 
         p.setBrush(QBrush(QColor(255, 176, 176, 130)))
         p.drawEllipse(QPointF(cx - r * 0.44, cy + r * 0.02), r * 0.15, r * 0.1)
         p.drawEllipse(QPointF(cx + r * 0.44, cy + r * 0.02), r * 0.15, r * 0.1)
@@ -189,7 +162,12 @@ class AssetManager:
             p.drawEllipse(QPointF(cx + r * 0.7, cy + r * 1.05), r * 0.13, r * 0.13)
 
     def _draw_fox(self, p, rect, state, c):
-        body_color = QColor("#E8895A") if state != "critical" else QColor("#CE7A50")
+        if state == "sick":
+            body_color = QColor("#9D7FB5")
+        elif state == "critical":
+            body_color = QColor("#CE7A50")
+        else:
+            body_color = QColor("#E8895A")
         muzzle_color = QColor("#FBEEE0")
         accent = self._state_color(state, c)
         cx, cy = rect.center().x(), rect.center().y()
@@ -200,7 +178,6 @@ class AssetManager:
         p.drawEllipse(QPointF(cx - r * 0.95, cy + r * 0.3), r * 0.5, r * 0.32)
         p.setBrush(QBrush(muzzle_color))
         p.drawEllipse(QPointF(cx - r * 1.22, cy + r * 0.26), r * 0.2, r * 0.16)
-
         p.setBrush(QBrush(body_color.darker(112)))
         p.drawEllipse(QPointF(cx - r * 0.3, cy + r * 0.98), r * 0.22, r * 0.15)
         p.drawEllipse(QPointF(cx + r * 0.3, cy + r * 0.98), r * 0.22, r * 0.15)
@@ -223,6 +200,7 @@ class AssetManager:
                 QPointF(cx + side * r * 0.2, cy - r * 0.64),
             ])
             p.drawPolygon(inner)
+
 
         p.setBrush(QBrush(body_color))
         p.drawEllipse(QPointF(cx, cy - r * 0.15), r * 0.8, r * 0.74)
@@ -304,27 +282,52 @@ class AssetManager:
         p.setBrush(QBrush(QColor("#3C2A1B")))
         p.drawRect(QRectF(cx - w * 0.06, cy + h * 0.14, w * 0.12, h * 0.16))
 
+    def _draw_tree(self, p, rect, state, c):
+        cx = rect.center().x()
+        base = rect.bottom()
+        w, h = rect.width(), rect.height()
+
+
+        p.setPen(QPen(Qt.NoPen))
+        p.setBrush(QBrush(QColor("#8A6644")))
+        p.drawRoundedRect(QRectF(cx - w * 0.07, base - h * 0.32, w * 0.14, h * 0.32), w * 0.04, w * 0.04)
+
+
+        canopy = QColor(c.forest)
+        canopy_light = canopy.lighter(118)
+        p.setBrush(QBrush(canopy))
+        p.drawEllipse(QPointF(cx - w * 0.22, base - h * 0.62), w * 0.32, w * 0.3)
+        p.drawEllipse(QPointF(cx + w * 0.22, base - h * 0.62), w * 0.32, w * 0.3)
+        p.setBrush(QBrush(canopy_light))
+        p.drawEllipse(QPointF(cx, base - h * 0.88), w * 0.4, w * 0.38)
+
+
+        p.setBrush(QBrush(canopy.darker(112)))
+        for dx, dy in ((-0.18, -0.78), (0.15, -0.9), (0.28, -0.6), (-0.05, -0.68)):
+            p.drawEllipse(QPointF(cx + w * dx, base + h * dy), w * 0.045, w * 0.045)
+
     def _draw_generic_dot(self, p, rect, state, c):
         p.setPen(QPen(Qt.NoPen))
         p.setBrush(QBrush(QColor(c.moss)))
         p.drawEllipse(rect)
 
+    # UI icons
     def _icon_play(self, p, rect, c):
         p.setPen(QPen(Qt.NoPen))
-        p.setBrush(QBrush(QColor(c.text)))
+        p.setBrush(QBrush(QColor(c.sand)))
         cx, cy, s = rect.center().x(), rect.center().y(), rect.width() * 0.32
         p.drawPolygon(QPolygonF([QPointF(cx - s * 0.6, cy - s), QPointF(cx - s * 0.6, cy + s), QPointF(cx + s, cy)]))
 
     def _icon_pause(self, p, rect, c):
         p.setPen(QPen(Qt.NoPen))
-        p.setBrush(QBrush(QColor(c.text)))
+        p.setBrush(QBrush(QColor(c.sand)))
         w = rect.width() * 0.18
         cx, cy, h = rect.center().x(), rect.center().y(), rect.height() * 0.34
         p.drawRoundedRect(QRectF(cx - w * 2, cy - h, w, h * 2), 1, 1)
         p.drawRoundedRect(QRectF(cx + w * 0.6, cy - h, w, h * 2), 1, 1)
 
     def _icon_reset(self, p, rect, c):
-        p.setPen(QPen(QColor(c.text), 2))
+        p.setPen(QPen(QColor(c.sand), 2))
         p.setBrush(QBrush(Qt.NoBrush))
         r = rect.adjusted(3, 3, -3, -3)
         p.drawArc(r, 30 * 16, 300 * 16)
@@ -335,7 +338,7 @@ class AssetManager:
         p.drawPolygon(QPolygonF([QPointF(cx - 5, cy), QPointF(cx + 5, cy), QPointF(cx, cy + 7)]))
 
     def _icon_save(self, p, rect, c):
-        p.setPen(QPen(QColor(c.text), 1.6))
+        p.setPen(QPen(QColor(c.sand), 1.6))
         p.setBrush(QBrush(Qt.NoBrush))
         r = rect.adjusted(3, 3, -3, -3)
         p.drawRoundedRect(r, 3, 3)
@@ -362,7 +365,7 @@ class AssetManager:
         p.drawLine(QPointF(cx, cy), QPointF(cx + r.width() * 0.2, cy))
 
     def _icon_back(self, p, rect, c):
-        p.setPen(QPen(QColor(c.text), 2.2))
+        p.setPen(QPen(QColor(c.sand), 2.2))
         cx, cy = rect.center().x(), rect.center().y()
         s = rect.width() * 0.22
         p.drawLine(QPointF(cx + s, cy - s), QPointF(cx - s, cy))

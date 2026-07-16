@@ -15,7 +15,7 @@ class IconButton(QPushButton):
         self.update()
 
     def paintEvent(self, event):
-        super().paintEvent(event)  # background / border / hover states from QSS
+        super().paintEvent(event)
         if self._pixmap is None or self._pixmap.isNull():
             return
         painter = QPainter(self)

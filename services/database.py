@@ -1,3 +1,12 @@
+"""
+DatabaseManager
+
+Single point of contact for all SQLite access. No other module opens a raw
+sqlite3 connection. Uses parameterized queries throughout, enables foreign
+keys, and wraps everything in context managers so connections always close
+even on error.
+"""
+
 import sqlite3
 import hashlib
 import os
@@ -79,6 +88,7 @@ class DatabaseManager:
         finally:
             conn.close()
 
+    # ---- password hashing ---------------------------------------------
     @staticmethod
     def _hash_password(password, salt=None):
         if salt is None:
@@ -86,6 +96,7 @@ class DatabaseManager:
         digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt), 200_000).hex()
         return digest, salt
 
+    # ---- users / profiles ----------------------------------------------
     def create_user(self, username, email="", password=""):
         password_hash, salt = (None, None)
         if password:
@@ -120,6 +131,7 @@ class DatabaseManager:
         with self._connect() as conn:
             conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
 
+    # ---- simulation saves (full state) ----------------------------------
     def save_full_state(self, user_id, save_name, engine_state):
         now = datetime.now().isoformat()
         state_json = json.dumps(engine_state)
@@ -169,6 +181,7 @@ class DatabaseManager:
             row = conn.execute("SELECT COUNT(*) as c FROM simulation_saves WHERE user_id = ?", (user_id,)).fetchone()
             return row["c"] > 0
 
+    # ---- statistical snapshots -------------------------------------------
     def save_snapshot(self, save_id, stats):
         with self._connect() as conn:
             conn.execute(
@@ -193,6 +206,7 @@ class DatabaseManager:
             ).fetchall()
             return [dict(r) for r in rows]
 
+    # ---- settings ----------------------------------------------------------
     def save_settings(self, user_id, settings_dict):
         with self._connect() as conn:
             existing = conn.execute("SELECT user_id FROM settings WHERE user_id = ?", (user_id,)).fetchone()
