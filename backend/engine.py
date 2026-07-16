@@ -1020,7 +1020,7 @@ class SimulationEngine:
 
         for plant in self.world.plants:
             data.append({
-                "id": plant.id, # 🟢 დაემატა ID
+                "id": plant.id,
                 "type": "plant",
                 "x": plant.x,
                 "y": plant.y,
@@ -1030,7 +1030,7 @@ class SimulationEngine:
         
         for bush in self.world.berry_bushes:
             data.append({
-                "id": bush.id, # 🟢 დაემატა ID
+                "id": bush.id, 
                 "type" : "berry_bush",
                 "x" : bush.x,
                 "y" : bush.y,
@@ -1039,7 +1039,7 @@ class SimulationEngine:
         
         for tree in self.world.trees:
             data.append({
-                "id": tree.id, # 🟢 დაემატა ID
+                "id": tree.id, 
                 "type": "tree",
                 "x": tree.x,
                 "y": tree.y,
@@ -1050,7 +1050,7 @@ class SimulationEngine:
 
         for water in self.world.water_sources:
             data.append({
-                "id": water.id, # 🟢 დაემატა ID
+                "id": water.id, 
                 "type": "water",
                 "x": water.x,
                 "y": water.y,
@@ -1059,7 +1059,7 @@ class SimulationEngine:
 
         for shelter in self.world.shelters:
             data.append({
-                "id": shelter.id, # 🟢 დაემატა ID
+                "id": shelter.id, 
                 "type": "shelter",
                 "x": shelter.x,
                 "y": shelter.y,
@@ -1068,7 +1068,7 @@ class SimulationEngine:
 
         for herbivore in self.world.herbivores:
             data.append({
-                "id": herbivore.id, # 🟢 დაემატა ID
+                "id": herbivore.id, 
                 "type": "herbivore",
                 "x": herbivore.x,
                 "y": herbivore.y,
@@ -1083,7 +1083,7 @@ class SimulationEngine:
 
         for fox in self.world.foxes:
             data.append({
-                "id": fox.id, # 🟢 დაემატა ID
+                "id": fox.id, 
                 "type" : "fox",
                 "x" : fox.x,
                 "y" : fox.y,
