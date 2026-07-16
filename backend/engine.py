@@ -679,7 +679,61 @@ class SimulationEngine:
                                 random.randint(0, self.world.height)
                             )
                         )
+    def add_plant(self, x, y):
+        self.world.plants.append(
+        Plant(
+            random.randint(100000, 999999),
+            x, y, 20
+        )
+    )
 
+    def add_berry_bush(self, x, y):
+        self.world.berry_bushes.append(
+            BerryBush(
+                random.randint(100000, 999999),
+                x, y
+            )
+        )
+
+    def add_water_source(self, x, y):
+        self.world.water_sources.append(
+            WaterSource(
+                random.randint(100000, 999999),
+                x, y, 40
+            )
+        )
+
+    def add_tree(self, x, y):
+        self.world.trees.append(
+            Tree(
+                random.randint(100000, 999999),
+                x, y
+            )
+        )
+
+    def add_herbivore(self, x, y):
+        self.world.herbivores.append(
+            Herbivore(
+                random.randint(100000, 999999),
+                x, y, 100, 150, 0, 3, 150
+            )
+        )
+
+    def add_fox(self, x, y):
+        self.world.foxes.append(
+            Fox(
+                random.randint(100000, 999999),
+                x, y, 100, 0, 200, 0, 4, 200
+            )
+        )
+
+    def add_shelter(self, x, y):
+        self.world.shelters.append(
+            Shelter(
+                random.randint(100000, 999999),
+                x, y, 50
+            )
+        )
 
     def save_full_state(self):
         return {
@@ -883,10 +937,9 @@ class SimulationEngine:
             self.world.foxes.append(fox)
 
     def trigger_disaster(self, disaster_type, x, y):
-        """
-        Triggers a player-selected disaster at the (x, y) coordinates where they clicked.
-        """
-        # === 1. WILDFIRE ===
+        
+
+        # === WILDFIRE ===
         if disaster_type == "wildfire":
             burn_radius = 150
             
@@ -912,10 +965,9 @@ class SimulationEngine:
                     animal.energy -= 40  # Lose energy frantically running away
                     animal.is_drinking = False
 
-        # === 2. DROUGHT ===
+        # === DROUGHT ===
         elif disaster_type == "drought":
             # Shrink EVERY water source on the map by 15 units.
-            # (Note: x and y don't matter here because a drought affects the whole world!)
             active_sources = []
             for water in self.world.water_sources:
                 water.radius -= 15
@@ -924,20 +976,20 @@ class SimulationEngine:
                     active_sources.append(water)
             self.world.water_sources = active_sources
 
-        # === 3. PLAGUE ===
+        # === PLAGUE ===
         elif disaster_type == "plague":
             plague_radius = 150
             spread_radius = 80
             infected_animals = []
 
-            # Step 1: Infect all animals standing inside the clicked area
+            #Infect all animals standing inside the clicked area
             for animal in self.world.herbivores + self.world.foxes:
                 dist = ((animal.x - x)**2 + (animal.y - y)**2)**0.5
                 if dist <= plague_radius:
                     animal.health -= 40  # Lose health from infection
                     infected_animals.append(animal)
 
-            # Step 2: Sickness spread! Any healthy animal standing too close to a sick one gets infected too
+            #Any healthy animal standing too close to a sick one gets infected too
             for animal in self.world.herbivores + self.world.foxes:
                 if animal in infected_animals:
                     continue  # Skip if they are already sick
