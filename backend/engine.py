@@ -680,60 +680,74 @@ class SimulationEngine:
                             )
                         )
     def add_plant(self, x, y):
+        plant_id = random.randint(1000000, 9999999)
         self.world.plants.append(
-        Plant(
-            random.randint(100000, 999999),
-            x, y, Plant.START_FOOD_VALUE
+            Plant(
+                plant_id,
+                x, y, Plant.START_FOOD_VALUE
+            )
         )
-    )
+        return plant_id
 
     def add_berry_bush(self, x, y):
+        bush_id = random.randint(1000000, 9999999)
         self.world.berry_bushes.append(
             BerryBush(
-                random.randint(100000, 999999),
+                bush_id,
                 x, y
             )
         )
+        return bush_id
 
     def add_water_source(self, x, y):
+        water_id = random.randint(1000000, 9999999)
         self.world.water_sources.append(
             WaterSource(
-                random.randint(100000, 999999),
+                water_id,
                 x, y, 40
             )
         )
+        return water_id
 
     def add_tree(self, x, y):
+        tree_id = random.randint(1000000, 9999999)
         self.world.trees.append(
             Tree(
-                random.randint(100000, 999999),
+                tree_id,
                 x, y
             )
         )
+        return tree_id
 
     def add_herbivore(self, x, y):
+        herb_id = random.randint(1000000, 9999999)
         self.world.herbivores.append(
             Herbivore(
-                random.randint(100000, 999999),
+                herb_id,
                 x, y, 100, 150, 0, 3, 150
             )
         )
+        return herb_id
 
     def add_fox(self, x, y):
+        fox_id = random.randint(1000000, 9999999)
         self.world.foxes.append(
             Fox(
-                random.randint(100000, 999999),
+                fox_id,
                 x, y, 100, 0, 200, 0, 4, 200
             )
         )
+        return fox_id
 
     def add_shelter(self, x, y):
+        shelter_id = random.randint(1000000, 9999999)
         self.world.shelters.append(
             Shelter(
-                random.randint(100000, 999999),
+                shelter_id,
                 x, y, 50
             )
         )
+        return shelter_id
 
     def save_full_state(self):
         return {
@@ -1006,6 +1020,7 @@ class SimulationEngine:
 
         for plant in self.world.plants:
             data.append({
+                "id": plant.id, # 🟢 დაემატა ID
                 "type": "plant",
                 "x": plant.x,
                 "y": plant.y,
@@ -1015,6 +1030,7 @@ class SimulationEngine:
         
         for bush in self.world.berry_bushes:
             data.append({
+                "id": bush.id, # 🟢 დაემატა ID
                 "type" : "berry_bush",
                 "x" : bush.x,
                 "y" : bush.y,
@@ -1023,6 +1039,7 @@ class SimulationEngine:
         
         for tree in self.world.trees:
             data.append({
+                "id": tree.id, # 🟢 დაემატა ID
                 "type": "tree",
                 "x": tree.x,
                 "y": tree.y,
@@ -1033,6 +1050,7 @@ class SimulationEngine:
 
         for water in self.world.water_sources:
             data.append({
+                "id": water.id, # 🟢 დაემატა ID
                 "type": "water",
                 "x": water.x,
                 "y": water.y,
@@ -1041,6 +1059,7 @@ class SimulationEngine:
 
         for shelter in self.world.shelters:
             data.append({
+                "id": shelter.id, # 🟢 დაემატა ID
                 "type": "shelter",
                 "x": shelter.x,
                 "y": shelter.y,
@@ -1049,10 +1068,11 @@ class SimulationEngine:
 
         for herbivore in self.world.herbivores:
             data.append({
+                "id": herbivore.id, # 🟢 დაემატა ID
                 "type": "herbivore",
                 "x": herbivore.x,
                 "y": herbivore.y,
-                "health": herbivore.health, # 🟢 ჩაემატა ჯანმრთელობა ფრონტენდისთვის
+                "health": herbivore.health,
                 "energy": herbivore.energy,
                 "speed": round(herbivore.speed, 2),
                 "vision": round(herbivore.vision, 1),
@@ -1063,10 +1083,11 @@ class SimulationEngine:
 
         for fox in self.world.foxes:
             data.append({
+                "id": fox.id, # 🟢 დაემატა ID
                 "type" : "fox",
                 "x" : fox.x,
                 "y" : fox.y,
-                "health": fox.health, # 🟢 ჩაემატა ჯანმრთელობა ფრონტენდისთვის
+                "health": fox.health,
                 "energy" : fox.energy,
                 "hunger" : fox.hunger,
                 "age" : fox.age,
